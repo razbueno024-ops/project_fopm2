@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FOPM — Site Plan</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> FOPM <span class="eyebrow" style="margin-left:8px">Feedback &amp; Concerns</span></div>
+    <a href="/admin-login.html" class="btn btn-ghost btn-sm">Admin</a>
+  </div>
+
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-logo-slot">
+        <img class="hero-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo">
+      </div>
+      <div class="eyebrow" style="margin-bottom:10px;">Site plan — 6 towers</div>
+      <h1>Raise a concern. Track it openly.</h1>
+      <p>Pick a tower below to open its dedicated platform and leave feedback on a concern. Lit windows show towers with open concerns.</p>
+    </div>
+
+    <div class="skyline" id="skyline"></div>
+
+    <div id="feedSection">
+      <div class="feed-header">
+        <div>
+          <div class="eyebrow" id="feedEyebrow">All towers</div>
+          <h2 id="feedTitle" style="font-size:1.4rem;">Every open concern, most recent first</h2>
+        </div>
+        <span class="hint">Choose a tower to view its concerns</span>
+      </div>
+      <div class="tower-tabs" id="towerTabs"></div>
+      <div id="feedBody"></div>
+    </div>
+
+    <p class="footer-note">Concerns are public via their unique link only — this keeps the wall open and honest without exposing everyone's business to casual browsing.</p>
+  </div>
+
+<script src="/js/api.js"></script>
+<script src="/js/feed.js"></script>
+<script>
+let towers = [];
+let allThreadsCache = null;
+let selectedId = new URLSearchParams(location.search).get('id') || null; // null = "All towers"
+
+function towerById(id) { return towers.find(t => String(t.id) === String(id)); }
+
+function renderSkyline() {
+  const el = document.getElementById('skyline');
+  el.innerHTML = towers.map(t => {
+    const windowCount = 9;
+    const lit = Math.min(windowCount, t.openThreads);
+    const windows = Array.from({length: windowCount}, (_, i) => `<i class="${i < lit ? 'lit' : ''}"></i>`).join('');
+    return `
+      <a class="tower-flag" style="--tower-accent:${t.accent}" href="/tower.html?id=${t.id}">
+        <div class="tower-building">
+          ${t.openThreads > 0 ? '<div class="tower-flag-pin"></div>' : ''}
+          <div class="tower-windows">${windows}</div>
+        </div>
+        <div class="tower-name">${t.name}</div>
+        <div class="tower-tag">${t.codename} · ${t.tagline}</div>
+      </a>`;
+  }).join('');
+}
+
+function renderTabs() {
+  const el = document.getElementById('towerTabs');
+  el.innerHTML = `
+    <a class="tower-tab ${!selectedId ? 'active' : ''}" href="/index.html">
+      <span class="dot"></span> All towers
+    </a>
+    ${towers.map(t => `
+      <a class="tower-tab ${String(selectedId)===String(t.id)?'active':''}" style="--tab-accent:${t.accent}" href="/tower.html?id=${t.id}">
+        <span class="dot"></span> ${t.name}
+      </a>`).join('')}
+  `;
+}
+
+async function selectTower(id) {
+  selectedId = id || null;
+  const url = selectedId ? `?id=${selectedId}` : location.pathname;
+  history.pushState({}, '', url);
+  renderTabs();
+  await renderFeedBody();
+  document.getElementById('feedSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function getAllThreadsMerged() {
+  if (allThreadsCache) return allThreadsCache;
+  const perTower = await Promise.all(towers.map(t => apiGet(`/api/towers/${t.id}/threads`)));
+  allThreadsCache = perTower.flat().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  return allThreadsCache;
+}
+
+async function renderFeedBody() {
+  const body = document.getElementById('feedBody');
+  body.innerHTML = `<div class="empty-state">Loading…</div>`;
+
+  if (!selectedId) {
+    document.getElementById('feedEyebrow').textContent = 'All towers';
+    document.getElementById('feedTitle').textContent = 'Every open concern, most recent first';
+    document.documentElement.style.setProperty('--tower-accent', 'var(--accent)');
+    const threads = await getAllThreadsMerged();
+    body.innerHTML = renderFeed(threads, 'cards', { showChip: true, towerOf: t => towerById(t.towerId) });
+    return;
+  }
+
+  const tower = towerById(selectedId);
+  if (!tower) { body.innerHTML = `<div class="empty-state">Tower not found.</div>`; return; }
+  setTowerTheme(tower.accent);
+  document.getElementById('feedEyebrow').textContent = `${tower.codename} · ${tower.tagline}`;
+  document.getElementById('feedTitle').textContent = tower.name;
+  const threads = await apiGet(`/api/towers/${tower.id}/threads`);
+  body.innerHTML = renderFeed(threads, tower.layout, { showChip: false, towerOf: () => tower });
+}
+
+async function load() {
+  if (selectedId) {
+    location.replace(`/tower.html?id=${encodeURIComponent(selectedId)}`);
+    return;
+  }
+  towers = await apiGet('/api/towers');
+  renderSkyline();
+  renderTabs();
+  await renderFeedBody();
+}
+load().catch(e => toast(e.message, true));
+
+window.onpopstate = () => {
+  selectedId = new URLSearchParams(location.search).get('id') || null;
+  renderTabs();
+  renderFeedBody();
+};
+
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Dashboard — FOPM</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> FOPM Admin</div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary btn-sm" id="createBtn">New concern</button>
+      <button class="btn btn-ghost btn-sm" id="analyticsBtn">Analytics</button>
+      <a class="btn btn-ghost btn-sm" href="/api/admin/export.csv">Export CSV</a>
+      <button class="btn btn-ghost btn-sm" id="usersBtn">Admin users</button>
+      <button class="btn btn-ghost btn-sm" id="settingsBtn">Settings</button>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="admin-layout">
+    <div class="admin-sidebar" id="sidebar"></div>
+    <div class="admin-main" id="main">
+      <div class="empty-state"><div class="glyph">📋</div>Select a tower or thread from the left to get started.</div>
+    </div>
+  </div>
+
+  <!-- Settings modal (simple inline panel) -->
+  <div id="settingsPanel" class="center-screen" style="display:none; position:fixed; inset:0; background:rgba(11,18,32,.75); z-index:50;">
+    <div class="card login-card">
+      <h3>Change admin password</h3>
+      <form id="pwForm">
+        <div class="field"><label>Current password</label><input type="password" id="curPw" required></div>
+        <div class="field"><label>New password</label><input type="password" id="newPw" required minlength="6"></div>
+        <button class="btn btn-primary" style="width:100%;" type="submit">Update password</button>
+      </form>
+      <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:10px;" id="closeSettings">Close</button>
+    </div>
+  </div>
+
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

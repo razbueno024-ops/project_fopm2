@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tower — FOPM</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> <a href="/index.html">FOPM</a> <span class="eyebrow" style="margin-left:8px">Tower platform</span></div>
+    <a href="/index.html" class="btn btn-ghost btn-sm">Back to home</a>
+  </div>
+
+  <div class="wrap" id="app" style="display:none;">
+    <div class="hero">
+      <div class="hero-logo-slot"><img class="hero-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"></div>
+      <div class="eyebrow" id="towerTag" style="margin-bottom:10px;"></div>
+      <h1 id="towerName"></h1>
+      <p>Review concerns for this tower and open a thread to leave feedback for the admin.</p>
+    </div>
+    <div class="feed-header">
+      <div>
+        <div class="eyebrow">Resident feedback</div>
+        <h2 style="font-size:1.4rem;">Concerns for this tower</h2>
+      </div>
+    </div>
+    <div id="feedBody"></div>
+  </div>
+
+<script src="/js/api.js"></script>
+<script src="/js/feed.js"></script>
+<script>
+const towerId = new URLSearchParams(location.search).get('id');
+
+async function load() {
+  if (!towerId) { location.replace('/index.html'); return; }
+  const towers = await apiGet('/api/towers');
+  const tower = towers.find(t => String(t.id) === String(towerId));
+  if (!tower) { location.replace('/index.html'); return; }
+  setTowerTheme(tower.accent);
+  document.getElementById('towerTag').textContent = `${tower.codename} · ${tower.tagline}`;
+  document.getElementById('towerName').textContent = tower.name;
+  document.getElementById('feedBody').innerHTML = renderFeed(
+    await apiGet(`/api/towers/${tower.id}/threads`),
+    tower.layout,
+    { showChip: false, towerOf: () => tower }
+  );
+  document.getElementById('app').style.display = 'block';
+}
+load().catch(e => toast(e.message, true));
+</script>
+</body>
+</html>

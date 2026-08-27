@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concern Thread — FOPM</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> <a href="/index.html">FOPM</a></div>
+    <a id="backLink" class="btn btn-ghost btn-sm">Back to tower</a>
+  </div>
+
+  <div class="wrap" id="app" style="max-width:680px; display:none;">
+    <div id="justSubmittedBox"></div>
+
+    <div class="eyebrow" id="towerTag"></div>
+    <h1 id="title" style="font-size:1.6rem;"></h1>
+    <div class="card verification-card" style="margin:16px 0;">
+      <strong>Identity verification required for concerns</strong>
+      <span class="hint" id="verificationState">Submit a valid ID and your concern privately. The admin must verify it before it appears in the thread.</span>
+      <form id="verificationForm" style="margin-top:10px;">
+        <div class="field"><label for="verificationName">Legal name</label><input id="verificationName" required></div>
+        <div class="field"><label for="verificationType">Document type</label><select id="verificationType"><option>Building ID</option><option>Government ID</option><option>School ID</option><option>Company ID</option></select></div>
+        <div class="field"><label for="verificationNumber">ID number</label><input id="verificationNumber" required pattern="[A-Za-z0-9-]{6,40}" placeholder="Enter the number printed on your ID"></div>
+        <div class="field"><label for="verificationFile">ID document image or PDF</label><input id="verificationFile" type="file" accept="image/*,.pdf" required></div>
+        <div class="field"><label for="concernMessage">Concerns</label><textarea id="concernMessage" required placeholder="Describe your concern for the admin..."></textarea></div>
+        <div class="field"><label for="concernPhoto">Photo attachment (optional)</label><input id="concernPhoto" type="file" accept="image/*"></div>
+        <button class="btn btn-sm" type="submit">Send for private review</button>
+      </form>
+      <span class="hint" id="feedbackState">After admin verification, your concern will be implemented in this thread.</span>
+    </div>
+
+    <div class="thread-status-bar">
+      <span class="badge" id="statusBadge"><span class="badge-dot"></span></span>
+      <div class="link-box" style="flex:1; min-width:200px;">
+        <span id="shareLink" style="flex:1; overflow:hidden; text-overflow:ellipsis;"></span>
+        <button class="btn btn-sm btn-ghost" id="copyBtn">Copy link</button>
+      </div>
+    </div>
+
+    <div class="card messages-card" id="messages"></div>
+
+    <div class="card" id="closedNotice" style="display:none; text-align:center; color:var(--text-dim);">
+      This concern has been marked <strong>Satisfied</strong> by the admin and is now closed to new replies.
+    </div>
+  </div>
+
+<script src="/js/api.js"></script>
+<script>
+const token = new URLSearchParams(location.search).get('token');
+let feedbackEnabled = false;
+if (!token) location.href = '/index.html';
+document.getElementById('shareLink').textContent = location.origin + `/thread.html?token=${token}`;
+document.getElementById('copyBtn').onclick = () => {
+  navigator.clipboard.writeText(location.origin + `/thread.html?token=${token}`);
+  toast('Link copied.');
+};
+
+document.getElementById('verificationForm').onsubmit = async event => {
+  event.preventDefault();
+  try {
+    const formData = new FormData();
+    formData.append('fullName', document.getElementById('verificationName').value);
+    formData.append('documentType', document.getElementById('verificationType').value);
+    formData.append('idNumber', document.getElementById('verificationNumber').value);
+    formData.append('idDocument', document.getElementById('verificationFile').files[0]);
+    formData.append('message', document.getElementById('concernMessage').value);
+    const concernPhoto = document.getElementById('concernPhoto').files[0];
+    if (concernPhoto) formData.append('concernPhoto', concernPhoto);
+    await apiPost(`/api/threads/${token}/verification`, formData, true);
+    document.getElementById('verificationState').textContent = 'Verification submitted privately and is pending admin review.';
+    event.target.reset();
+    toast('Verification sent privately.');
+  } catch (error) { toast(error.message, true); }
+};
+
+if (new URLSearchParams(location.search).get('justSubmitted')) {
+  document.getElementById('justSubmittedBox').innerHTML = `
+    <div class="card" style="margin-bottom:18px; border-color: var(--good);">
+      <strong style="color:var(--good)">Concern submitted.</strong>
+      <p style="margin:6px 0 0;">Save this page's link — it's the only way to check back for a reply, since no account is required.</p>
+    </div>`;
+}
+
+function renderMessages(messages) {
+  return messages.map(m => `
+    <div class="msg ${m.author}">
+      <div class="msg-avatar">${m.author === 'admin' ? 'AD' : initials('U')}</div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-author">${m.author === 'admin' ? 'Admin' : 'Resident'}</span>
+          <span class="msg-time">${timeAgo(m.createdAt)}${m.editedAt ? ' · edited' : ''}</span>
+        </div>
+        <div class="msg-text">${escapeHtml(m.text)}</div>
+        ${m.attachment ? `<img class="msg-photo" src="${m.attachment}">` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function load() {
+  const { thread, tower } = await apiGet(`/api/threads/${token}`);
+  setTowerTheme(tower.accent);
+  document.getElementById('backLink').href = `/index.html?id=${tower.id}`;
+  document.getElementById('towerTag').textContent = `${tower.name} · ${tower.codename}`;
+  document.getElementById('title').textContent = thread.title;
+  const verificationStatus = thread.verification?.status || 'not-submitted';
+  document.getElementById('verificationState').textContent = verificationStatus === 'verified'
+    ? 'Identity verified by the admin. Your concern is now visible in this thread.'
+    : verificationStatus === 'pending' ? 'Verification is pending admin review. Feedback is locked until approval.'
+    : verificationStatus === 'rejected' ? 'Verification was rejected. Submit a new valid ID for review.'
+    : 'Submit a valid ID privately. The admin must verify it before you can send feedback.';
+  feedbackEnabled = verificationStatus === 'verified';
+  document.getElementById('feedbackState').textContent = feedbackEnabled
+    ? 'Verified. Your concern is now visible in this thread.'
+    : 'After admin verification, your concern will be implemented in this thread.';
+  document.getElementById('messages').innerHTML = renderMessages(thread.messages);
+  const badge = document.getElementById('statusBadge');
+  badge.className = 'badge ' + (thread.status === 'open' ? 'badge-open' : 'badge-satisfied');
+  const statusLabel = { new: 'New', 'in-progress': 'In progress', resolved: 'Resolved', open: 'Open', satisfied: 'Resolved' }[thread.status] || 'New';
+  badge.innerHTML = `<span class="badge-dot"></span>${statusLabel}`;
+  if (thread.status === 'resolved') document.getElementById('closedNotice').style.display = 'block';
+  document.querySelector('.wrap').style.display = 'block';
+}
+load().catch(e => { toast(e.message, true); });
+
+</script>
+</body>
+</html>

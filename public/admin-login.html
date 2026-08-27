@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Login — FOPM</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="center-screen">
+    <div class="card login-card">
+      <div class="eyebrow" style="margin-bottom:10px;">Admin access</div>
+      <h1 style="font-size:1.5rem;">Sign in</h1>
+      <p>Only the admin can respond to, close, edit, or remove concerns.</p>
+      <form id="form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" required>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" type="submit" id="btn">Sign in</button>
+      </form>
+      <p class="hint" style="margin-top:14px; text-align:center;">Default: admin / admin123 — change it after signing in.</p>
+      <p style="text-align:center;"><a href="/index.html" class="btn-ghost btn btn-sm">← Back to site plan</a></p>
+    </div>
+  </div>
+<script src="/js/api.js"></script>
+<script>
+apiGet('/api/admin/session').then(s => { if (s.isAdmin) location.href = '/admin.html'; });
+document.getElementById('form').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try {
+    await apiPost('/api/admin/login', {
+      username: document.getElementById('username').value,
+      password: document.getElementById('password').value
+    });
+    location.href = '/admin.html';
+  } catch (err) {
+    toast(err.message, true);
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+};
+</script>
+</body>
+</html>
