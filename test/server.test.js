@@ -23,6 +23,14 @@ test('serves the main application pages', async () => {
   }
 });
 
+test('uses the documented default admin password', async () => {
+  const { load } = require('../db');
+  const state = load();
+  const bcrypt = require('bcryptjs');
+  assert.equal(state.admin.username, 'admin');
+  assert.equal(bcrypt.compareSync('admin123', state.admin.passwordHash), true);
+});
+
 test('protects admin analytics and private documents', async () => {
   const analytics = await fetch(`${baseUrl}/api/admin/analytics`);
   const document = await fetch(`${baseUrl}/api/admin/threads/kf4c2wknm2/verification/document`);
