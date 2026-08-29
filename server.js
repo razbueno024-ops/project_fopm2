@@ -97,6 +97,55 @@ const canModerate = requireAdminRole('admin', 'manager');
 const canManageUsers = requireAdminRole('admin');
 const canReviewIdentity = requireAdminRole('admin');
 
+function normalizePersistedAttachment(value, fileHint) {
+  if (!value || isDataUri(value)) return value;
+  const filePath = path.join(__dirname, value.replace(/^\//, ''));
+  if (!fs.existsSync(filePath)) return value;
+  const extension = path.extname(filePath).toLowerCase();
+  const mimeType = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.pdf': 'application/pdf'
+  }[extension] || fileHint || 'application/octet-stream';
+  return fileToDataUri(filePath, mimeType);
+}
+
+function normalizePersistedMedia(state) {
+  if (!state || !Array.isArray(state.threads)) return false;
+  let changed = false;
+  state.threads.forEach(thread => {
+    if (Array.isArray(thread.messages)) {
+      thread.messages.forEach(message => {
+        if (message.attachment && !isDataUri(message.attachment)) {
+          const next = normalizePersistedAttachment(message.attachment);
+          if (next !== message.attachment) {
+            message.attachment = next;
+            changed = true;
+          }
+        }
+      });
+    }
+    if (thread.pendingFeedback?.attachment && !isDataUri(thread.pendingFeedback.attachment)) {
+      const next = normalizePersistedAttachment(thread.pendingFeedback.attachment);
+      if (next !== thread.pendingFeedback.attachment) {
+        thread.pendingFeedback.attachment = next;
+        changed = true;
+      }
+    }
+    if (thread.verification && !thread.verification.dataUri && thread.verification.fileName) {
+      const candidate = path.join(VERIFICATION_DIR, path.basename(thread.verification.fileName));
+      if (fs.existsSync(candidate)) {
+        thread.verification.dataUri = normalizePersistedAttachment(`/private-verifications/${path.basename(thread.verification.fileName)}`, thread.verification.mimeType);
+        changed = true;
+      }
+    }
+  });
+  return changed;
+}
+
 function ensureState(state) {
   state.adminUsers ||= [{ username: state.admin.username, role: 'admin', passwordHash: state.admin.passwordHash }];
   state.notifications ||= [];
@@ -109,6 +158,9 @@ function ensureState(state) {
     thread.assignedTo ||= null;
     thread.history ||= [{ action: 'created', at: thread.createdAt, by: thread.submitterName || 'System' }];
   });
+  if (normalizePersistedMedia(state)) {
+    try { db.save(state); } catch (err) { console.warn('Could not persist normalized media state:', err.message); }
+  }
   return state;
 }
 
@@ -118,7 +170,7 @@ function publicThread(t) {
     ...safeThread,
     messages: safeThread.messages.map(message => ({
       ...message,
-      attachment: message.attachment && fs.existsSync(path.join(__dirname, message.attachment.replace(/^\//, ''))) ? message.attachment : null
+      attachment: storedAttachment(message.attachment)
     })),
     verification: verification ? { status: verification.status } : { status: 'not-submitted' }
   };
@@ -128,8 +180,19 @@ function validateImageUpload(file) {
   return file && hasValidFileSignature(file.path, file.mimetype);
 }
 
+function isDataUri(value) {
+  return typeof value === 'string' && value.startsWith('data:');
+}
+
 function storedAttachment(attachment) {
-  return attachment && fs.existsSync(path.join(__dirname, attachment.replace(/^\//, ''))) ? attachment : null;
+  if (!attachment) return null;
+  if (isDataUri(attachment)) return attachment;
+  return fs.existsSync(path.join(__dirname, attachment.replace(/^\//, ''))) ? attachment : null;
+}
+
+function fileToDataUri(filePath, mimeType) {
+  const buffer = fs.readFileSync(filePath);
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
 function removeUploadedFiles(files) {
@@ -257,6 +320,7 @@ app.post('/api/admin/towers/:id/threads', canModerate, upload.single('attachment
     fs.unlink(req.file.path, () => {});
     return res.status(400).json({ error: 'The concern image does not match its declared format.' });
   }
+  const attachmentDataUri = req.file ? fileToDataUri(req.file.path, req.file.mimetype) : null;
   if (!title || !title.trim() || !message || !message.trim()) {
     return res.status(400).json({ error: 'Please provide both a title and a description of the concern.' });
   }
@@ -288,7 +352,7 @@ app.post('/api/admin/towers/:id/threads', canModerate, upload.single('attachment
       id: uuidv4(),
       author: 'admin',
       text: message.trim(),
-      attachment: req.file ? `/uploads/${req.file.filename}` : null,
+      attachment: attachmentDataUri,
       createdAt: now
     }]
   };
@@ -361,11 +425,10 @@ app.post('/api/threads/:token/verification', verificationUpload.fields([{ name: 
   }
   const currentState = ensureState(db.load());
   const currentThread = currentState.threads.find(item => item.token === req.params.token);
-  if (!currentThread || currentThread.status === 'resolved' || currentThread.verification?.status === 'pending' || currentThread.verification?.status === 'verified') {
+  if (!currentThread || currentThread.status === 'resolved') {
     removeUploadedFiles(req.files);
     if (!currentThread) return res.status(404).json({ error: 'Concern not found.' });
-    if (currentThread.status === 'resolved') return res.status(409).json({ error: 'Resolved threads cannot receive verification.' });
-    return res.status(409).json({ error: 'This concern already has an active or completed verification.' });
+    return res.status(409).json({ error: 'Resolved threads cannot receive verification.' });
   }
   if (!ID_NUMBER_PATTERN.test(idNumber.trim())) {
     if (concernPhoto) fs.unlink(concernPhoto.path, () => {});
@@ -376,6 +439,8 @@ app.post('/api/threads/:token/verification', verificationUpload.fields([{ name: 
     if (concernPhoto) fs.unlink(concernPhoto.path, () => {});
     return res.status(400).json({ error: 'The uploaded ID file does not match its declared format.' });
   }
+  const concernPhotoDataUri = concernPhoto ? fileToDataUri(concernPhoto.path, concernPhoto.mimetype) : null;
+  const idDocumentDataUri = fileToDataUri(idFile.path, idFile.mimetype);
   db.update(state => {
     ensureState(state);
     const thread = state.threads.find(item => item.token === req.params.token);
@@ -391,9 +456,10 @@ app.post('/api/threads/:token/verification', verificationUpload.fields([{ name: 
       idNumber: idNumber.trim().slice(0, 40),
       mimeType: idFile.mimetype,
       fileName: idFile.filename,
+      dataUri: idDocumentDataUri,
       submittedAt: new Date().toISOString()
     };
-    thread.pendingFeedback = { text: message.trim(), attachment: concernPhoto ? `/uploads/${concernPhoto.filename}` : null, submittedAt: thread.verification.submittedAt };
+    thread.pendingFeedback = { text: message.trim(), attachment: concernPhotoDataUri, submittedAt: thread.verification.submittedAt };
     thread.adminUnread = true;
     state.notifications.push({ id: uuidv4(), type: 'verification', threadToken: thread.token, towerId: thread.towerId, message: 'New identity verification requires review', createdAt: thread.verification.submittedAt, read: false });
     thread.history.push({ action: 'verification:submitted', at: thread.verification.submittedAt, by: 'Anonymous resident' });
@@ -513,7 +579,17 @@ app.get('/api/admin/threads/:token/verification', canReviewIdentity, (req, res) 
 app.get('/api/admin/threads/:token/verification/document', canReviewIdentity, (req, res) => {
   const state = ensureState(db.load());
   const thread = state.threads.find(item => item.token === req.params.token);
-  if (!thread?.verification?.fileName) return res.status(404).json({ error: 'Verification document not found.' });
+  if (!thread?.verification?.fileName && !thread?.verification?.dataUri) return res.status(404).json({ error: 'Verification document not found.' });
+  if (thread.verification.dataUri) {
+    const match = thread.verification.dataUri.match(/^data:(.+);base64,(.*)$/i);
+    if (match) {
+      const mimeType = match[1] || thread.verification.mimeType || 'application/octet-stream';
+      const decoded = Buffer.from(match[2], 'base64');
+      res.type(mimeType);
+      res.setHeader('Content-Disposition', 'inline');
+      return res.send(decoded);
+    }
+  }
   const filePath = path.join(VERIFICATION_DIR, path.basename(thread.verification.fileName));
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Verification document not found.' });
   res.type(thread.verification.mimeType || 'application/octet-stream');
@@ -542,7 +618,9 @@ app.patch('/api/admin/threads/:token/verification', canReviewIdentity, (req, res
       thread.history.push({ action: 'concern:published', at: thread.updatedAt, by: req.session.username });
     }
     if (req.body.status === 'rejected') {
-      if (thread.pendingFeedback?.attachment) fs.unlink(path.join(__dirname, thread.pendingFeedback.attachment.replace(/^\//, '')), () => {});
+      if (thread.pendingFeedback?.attachment && !isDataUri(thread.pendingFeedback.attachment)) {
+        fs.unlink(path.join(__dirname, thread.pendingFeedback.attachment.replace(/^\//, '')), () => {});
+      }
       delete thread.pendingFeedback;
     }
     return { ok: true };
@@ -561,6 +639,7 @@ app.post('/api/admin/threads/:token/reply', canModerate, upload.single('attachme
     fs.unlink(req.file.path, () => {});
     return res.status(400).json({ error: 'The reply image does not match its declared format.' });
   }
+  const attachmentDataUri = req.file ? fileToDataUri(req.file.path, req.file.mimetype) : null;
   db.update(d => {
     ensureState(d);
     const thread = d.threads.find(t => t.token === req.params.token);
@@ -570,7 +649,7 @@ app.post('/api/admin/threads/:token/reply', canModerate, upload.single('attachme
       id: uuidv4(),
       author: 'admin',
       text: message.trim(),
-      attachment: req.file ? `/uploads/${req.file.filename}` : null,
+      attachment: attachmentDataUri,
       createdAt: now
     });
     thread.updatedAt = now;
@@ -644,7 +723,7 @@ app.delete('/api/admin/threads/:token', canManageUsers, (req, res) => {
     const [removed] = d.threads.splice(idx, 1);
     // best-effort cleanup of attached photos
     removed.messages.forEach(m => {
-      if (m.attachment) {
+      if (m.attachment && !isDataUri(m.attachment)) {
         const p = path.join(__dirname, m.attachment.replace(/^\//, ''));
         fs.unlink(p, () => {});
       }

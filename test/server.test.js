@@ -42,3 +42,22 @@ test('blocks the retired resident reply bypass', async () => {
   const response = await fetch(`${baseUrl}/api/threads/kf4c2wknm2/reply`, { method: 'POST' });
   assert.equal(response.status, 410);
 });
+
+test('allows a fresh verification submission while the concern remains open', async () => {
+  const token = 'kf4c2wknm2';
+  const form = new FormData();
+  form.append('fullName', 'Repeat Verification User');
+  form.append('documentType', 'Building ID');
+  form.append('idNumber', 'ABC123');
+  form.append('message', 'This is a new verification attempt while the concern is still open.');
+  form.append('idDocument', new Blob(['%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n'], { type: 'application/pdf' }), 'repeat-id.pdf');
+
+  const response = await fetch(`${baseUrl}/api/threads/${token}/verification`, {
+    method: 'POST',
+    body: form
+  });
+
+  assert.equal(response.status, 201, 'should accept fresh verification while thread is open');
+  const data = await response.json();
+  assert.equal(data.status, 'pending');
+});
