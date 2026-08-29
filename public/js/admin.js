@@ -168,6 +168,8 @@ function renderMsg(m) {
     </div>`;
 }
 
+let verificationCollapsed = {};
+
 async function renderThreadDetail(token) {
   const { thread, tower } = await apiGet(`/api/admin/threads/${token}`);
   const verification = currentRole === 'admin' ? await apiGet(`/api/admin/threads/${token}/verification`) : { status: 'admin-only' };
@@ -194,7 +196,13 @@ async function renderThreadDetail(token) {
       <button class="btn btn-sm" id="saveControls">Save workflow</button>
     </div>
     <div class="card"><strong>Concern details</strong><div class="thread-meta" style="margin-top:8px;">${escapeHtml(thread.category)} · ${escapeHtml(thread.urgency)} · ${escapeHtml(thread.location || 'Location not set')}</div></div>
-    ${currentRole === 'admin' ? `<div class="card verification-review"><strong>Identity verification</strong><div class="thread-meta" style="margin-top:8px;">${verification.status === 'not-submitted' ? 'Not submitted' : `${escapeHtml(verification.fullName)} · ${escapeHtml(verification.documentType)} · ID ${escapeHtml(verification.idNumber)} · <span style="font-weight:bold; color:${verification.status === 'verified' ? '#2FB8A6' : verification.status === 'rejected' ? '#D64545' : '#E8A33D'}">${verification.status === 'verified' ? '✓ Verified' : verification.status === 'rejected' ? '✗ Rejected' : escapeHtml(verification.status)}</span>`}</div>${verification.viewUrl ? `${verification.mimeType === 'application/pdf' ? `<iframe class="verification-document" src="${verification.viewUrl}" title="Private verification document"></iframe>` : `<img class="verification-document" src="${verification.viewUrl}" alt="Private verification document">`}${['verified', 'rejected'].includes(verification.status) ? '' : `<div class="verification-actions"><button class="btn btn-sm btn-primary" id="verifyVerification">Verify ID</button><button class="btn btn-sm btn-danger" id="rejectVerification">Reject ID</button></div>`}` : ''}</div>` : '<div class="card"><strong>Identity verification</strong><div class="thread-meta">Restricted to the administrator.</div></div>'}
+    ${currentRole === 'admin' ? `<div class="card verification-review">
+      <div class="collapsible-header" id="verificationToggle" style="${verification.status === 'not-submitted' ? 'cursor:default;' : ''}"><div><strong>Identity verification</strong></div>${verification.status === 'not-submitted' ? '' : `<button class="collapse-btn" type="button">${verification._collapsed ? '▶' : '▼'}</button>`}</div>
+      <div class="collapsible-content ${verification._collapsed ? 'collapsed' : ''}">
+        <div class="thread-meta" style="margin-top:8px;">${verification.status === 'not-submitted' ? 'Not submitted' : `${escapeHtml(verification.fullName)} · ${escapeHtml(verification.documentType)} · ID ${escapeHtml(verification.idNumber)} · <span style="font-weight:bold; color:${verification.status === 'verified' ? '#2FB8A6' : verification.status === 'rejected' ? '#D64545' : '#E8A33D'}">${verification.status === 'verified' ? '✓ Verified' : verification.status === 'rejected' ? '✗ Rejected' : escapeHtml(verification.status)}</span>`}</div>
+        ${verification.viewUrl ? `${verification.mimeType === 'application/pdf' ? `<iframe class="verification-document" src="${verification.viewUrl}" title="Private verification document"></iframe>` : `<img class="verification-document" src="${verification.viewUrl}" alt="Private verification document">`}${['verified', 'rejected'].includes(verification.status) ? '' : `<div class="verification-actions"><button class="btn btn-sm btn-primary" id="verifyVerification">Verify ID</button><button class="btn btn-sm btn-danger" id="rejectVerification">Reject ID</button></div>`}` : ''}
+      </div>
+    </div>` : '<div class="card"><strong>Identity verification</strong><div class="thread-meta">Restricted to the administrator.</div></div>'}
     <div class="link-box" style="margin-bottom:18px;">
       <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${location.origin}/thread.html?token=${thread.token}</span>
       <button class="btn btn-sm btn-ghost" id="copyLinkBtn">Copy link</button>
@@ -237,6 +245,19 @@ async function renderThreadDetail(token) {
   const rejectVerification = document.getElementById('rejectVerification');
   if (verifyVerification) verifyVerification.onclick = () => updateVerification('verified');
   if (rejectVerification) rejectVerification.onclick = () => updateVerification('rejected');
+  
+  const verificationToggle = document.getElementById('verificationToggle');
+  if (verificationToggle && verification.status !== 'not-submitted') {
+    verificationToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      verificationCollapsed[token] = !verificationCollapsed[token];
+      const content = document.querySelector('.verification-review .collapsible-content');
+      const btn = document.querySelector('.collapse-btn');
+      if (content) content.classList.toggle('collapsed');
+      if (btn) btn.textContent = verificationCollapsed[token] ? '▶' : '▼';
+    });
+  }
+  
   document.getElementById('copyLinkBtn').onclick = () => {
     navigator.clipboard.writeText(`${location.origin}/thread.html?token=${thread.token}`);
     toast('Link copied.');

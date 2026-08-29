@@ -286,6 +286,11 @@ textarea{ resize: vertical; min-height: 100px; }
 .verification-actions{ display:flex; align-items:center; gap:10px; }
 .verification-card{ border-color: var(--danger); box-shadow: 0 0 0 1px rgba(214,69,69,.12), 0 16px 34px rgba(0,0,0,.12); }
 .verification-card strong, .verification-review strong{ color:#ff8a8a; }
+.collapsible-header{ display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
+.collapsible-header:hover strong{ opacity:.8; }
+.collapse-btn{ background:none; border:none; color:var(--text); font-size:1rem; padding:0 4px; cursor:pointer; }
+.collapse-btn:hover{ opacity:.7; }
+.collapsible-content.collapsed{ display:none; }
 .messages-card{ border-color: #e8b94a; box-shadow: 0 0 0 1px rgba(232,185,74,.12), 0 16px 34px rgba(0,0,0,.12); }
 .msg.user{ border-left:3px solid var(--danger); padding-left:12px; }
 .sidebar-item{

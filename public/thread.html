@@ -18,18 +18,23 @@
     <div class="eyebrow" id="towerTag"></div>
     <h1 id="title" style="font-size:1.6rem;"></h1>
     <div class="card verification-card" style="margin:16px 0;">
-      <strong>Identity verification required for concerns</strong>
-      <span class="hint" id="verificationState">Submit a valid ID and your concern privately. The admin must verify it before it appears in the thread.</span>
-      <form id="verificationForm" style="margin-top:10px;">
-        <div class="field"><label for="verificationName">Legal name</label><input id="verificationName" required></div>
-        <div class="field"><label for="verificationType">Document type</label><select id="verificationType"><option>Building ID</option><option>Government ID</option><option>School ID</option><option>Company ID</option></select></div>
-        <div class="field"><label for="verificationNumber">ID number</label><input id="verificationNumber" required pattern="[A-Za-z0-9-]{6,40}" placeholder="Enter the number printed on your ID"></div>
-        <div class="field"><label for="verificationFile">ID document image or PDF</label><input id="verificationFile" type="file" accept="image/*,.pdf" required></div>
-        <div class="field"><label for="concernMessage">Concerns</label><textarea id="concernMessage" required placeholder="Describe your concern for the admin..."></textarea></div>
-        <div class="field"><label for="concernPhoto">Photo attachment (optional)</label><input id="concernPhoto" type="file" accept="image/*"></div>
-        <button class="btn btn-sm" type="submit">Send for private review</button>
-      </form>
-      <span class="hint" id="feedbackState">After admin verification, your concern will be implemented in this thread.</span>
+      <div class="collapsible-header" id="verificationCardHeader" style="margin-bottom:10px;">
+        <strong>Identity verification required for concerns</strong>
+        <button class="collapse-btn" type="button">▼</button>
+      </div>
+      <div class="collapsible-content" id="verificationCardContent">
+        <span class="hint" id="verificationState">Submit a valid ID and your concern privately. The admin must verify it before it appears in the thread.</span>
+        <form id="verificationForm" style="margin-top:10px;">
+          <div class="field"><label for="verificationName">Legal name</label><input id="verificationName" required></div>
+          <div class="field"><label for="verificationType">Document type</label><select id="verificationType"><option>Building ID</option><option>Government ID</option><option>School ID</option><option>Company ID</option></select></div>
+          <div class="field"><label for="verificationNumber">ID number</label><input id="verificationNumber" required pattern="[A-Za-z0-9-]{6,40}" placeholder="Enter the number printed on your ID"></div>
+          <div class="field"><label for="verificationFile">ID document image or PDF</label><input id="verificationFile" type="file" accept="image/*,.pdf" required></div>
+          <div class="field"><label for="concernMessage">Concerns</label><textarea id="concernMessage" required placeholder="Describe your concern for the admin..."></textarea></div>
+          <div class="field"><label for="concernPhoto">Photo attachment (optional)</label><input id="concernPhoto" type="file" accept="image/*"></div>
+          <button class="btn btn-sm" type="submit">Send for private review</button>
+        </form>
+        <span class="hint" id="feedbackState">After admin verification, your concern will be implemented in this thread.</span>
+      </div>
     </div>
 
     <div class="thread-status-bar">
@@ -57,6 +62,14 @@ document.getElementById('copyBtn').onclick = () => {
   navigator.clipboard.writeText(location.origin + `/thread.html?token=${token}`);
   toast('Link copied.');
 };
+
+document.getElementById('verificationCardHeader').addEventListener('click', (e) => {
+  e.preventDefault();
+  const content = document.getElementById('verificationCardContent');
+  const btn = document.querySelector('#verificationCardHeader .collapse-btn');
+  content.classList.toggle('collapsed');
+  btn.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+});
 
 document.getElementById('verificationForm').onsubmit = async event => {
   event.preventDefault();
