@@ -68,7 +68,7 @@
       "assignedTo": null,
       "adminUnread": false,
       "createdAt": "2026-08-27T06:52:03.446Z",
-      "updatedAt": "2026-08-27T08:16:12.246Z",
+      "updatedAt": "2026-08-27T21:57:01.107Z",
       "closedAt": null,
       "history": [
         {
@@ -84,6 +84,51 @@
         {
           "action": "status:in-progress",
           "at": "2026-08-27T07:40:20.454Z",
+          "by": "admin"
+        },
+        {
+          "action": "verification:submitted",
+          "at": "2026-08-27T21:49:50.379Z",
+          "by": "Anonymous resident"
+        },
+        {
+          "action": "status:resolved",
+          "at": "2026-08-27T21:54:10.340Z",
+          "by": "admin"
+        },
+        {
+          "action": "assigned:unassigned",
+          "at": "2026-08-27T21:54:10.345Z",
+          "by": "admin"
+        },
+        {
+          "action": "status:new",
+          "at": "2026-08-27T21:54:23.070Z",
+          "by": "admin"
+        },
+        {
+          "action": "assigned:unassigned",
+          "at": "2026-08-27T21:54:23.077Z",
+          "by": "admin"
+        },
+        {
+          "action": "status:in-progress",
+          "at": "2026-08-27T21:54:33.511Z",
+          "by": "admin"
+        },
+        {
+          "action": "assigned:unassigned",
+          "at": "2026-08-27T21:54:33.516Z",
+          "by": "admin"
+        },
+        {
+          "action": "verification:verified",
+          "at": "2026-08-27T21:57:01.107Z",
+          "by": "admin"
+        },
+        {
+          "action": "concern:published",
+          "at": "2026-08-27T21:57:01.107Z",
           "by": "admin"
         }
       ],
@@ -109,8 +154,26 @@
           "text": "nigga",
           "attachment": null,
           "createdAt": "2026-08-27T08:16:12.246Z"
+        },
+        {
+          "id": "dc0a2c34-a5c5-4ad6-801c-f6ad5efba9cd",
+          "author": "user",
+          "text": "ASDASDS",
+          "attachment": null,
+          "createdAt": "2026-08-27T21:49:50.379Z"
         }
-      ]
+      ],
+      "verification": {
+        "status": "verified",
+        "fullName": "ERICKA FAYE DELA CRUZ",
+        "documentType": "Building ID",
+        "idNumber": "09692907740",
+        "mimeType": "image/jpeg",
+        "fileName": "5638b3f3-a84e-4339-82eb-5ab60b23aa43.jpg",
+        "submittedAt": "2026-08-27T21:49:50.379Z",
+        "reviewedAt": "2026-08-27T21:57:01.107Z",
+        "reviewedBy": "admin"
+      }
     },
     {
       "id": 6,
@@ -256,14 +319,85 @@
         "reviewedAt": "2026-08-27T07:32:51.344Z",
         "reviewedBy": "admin"
       }
+    },
+    {
+      "id": 7,
+      "token": "b7bamrfv6b",
+      "towerId": 1,
+      "title": "i love ericka",
+      "submitterName": "Admin",
+      "submitterUnit": "",
+      "status": "new",
+      "category": "Maintenance",
+      "urgency": "emergency",
+      "location": "laoag",
+      "assignedTo": null,
+      "adminUnread": false,
+      "createdAt": "2026-08-27T22:05:54.220Z",
+      "updatedAt": "2026-08-27T22:05:54.220Z",
+      "closedAt": null,
+      "history": [
+        {
+          "action": "created",
+          "at": "2026-08-27T22:05:54.220Z",
+          "by": "admin"
+        }
+      ],
+      "messages": [
+        {
+          "id": "7af6f1b0-30cb-4294-8460-144a89529afd",
+          "author": "admin",
+          "text": "so much",
+          "attachment": null,
+          "createdAt": "2026-08-27T22:05:54.220Z"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "token": "bbydhnv2q2",
+      "towerId": 6,
+      "title": "UGLY AF",
+      "submitterName": "Admin",
+      "submitterUnit": "",
+      "status": "new",
+      "category": "Safety",
+      "urgency": "low",
+      "location": "YSGUIG",
+      "assignedTo": null,
+      "adminUnread": false,
+      "createdAt": "2026-08-27T22:11:51.752Z",
+      "updatedAt": "2026-08-27T22:11:51.752Z",
+      "closedAt": null,
+      "history": [
+        {
+          "action": "created",
+          "at": "2026-08-27T22:11:51.752Z",
+          "by": "admin"
+        }
+      ],
+      "messages": [
+        {
+          "id": "21ed647a-4a5a-40c5-b80c-6b7149b40773",
+          "author": "admin",
+          "text": "PATRICK SO UGLY FAT BITCH",
+          "attachment": "/uploads/c9c5df28-018c-401b-9fde-27f49268cffb.gif",
+          "createdAt": "2026-08-27T22:11:51.752Z"
+        }
+      ]
     }
   ],
-  "nextThreadSeq": 7,
+  "nextThreadSeq": 9,
   "adminUsers": [
     {
       "username": "admin",
       "role": "admin",
       "passwordHash": "$2b$10$cIdzi/XrQCgtnIcsGs85COZDE.cWUbI3zZeB87m0jOclCfxYYEy6G"
+    },
+    {
+      "username": "raz",
+      "role": "staff",
+      "passwordHash": "$2b$10$sV4FOCo5yvq3CWNaqr/aS.N4JE4ZvKz.EltQP9BOQ3m8Z52fzgrUO"
     }
   ],
   "notifications": [
@@ -322,6 +456,15 @@
       "towerId": 4,
       "message": "The admin replied to your concern",
       "createdAt": "2026-08-27T08:16:27.003Z",
+      "read": false
+    },
+    {
+      "id": "2a04a7ba-acba-4e26-b261-ec1a342fbff6",
+      "type": "verification",
+      "threadToken": "kweunv6ggd",
+      "towerId": 1,
+      "message": "New identity verification requires review",
+      "createdAt": "2026-08-27T21:49:50.379Z",
       "read": false
     }
   ],
