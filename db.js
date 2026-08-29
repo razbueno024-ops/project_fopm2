@@ -161,6 +161,18 @@ async function initialize() {
   return cache;
 }
 
+async function safeDatabaseOperation(operation, fallback) {
+  if (!DATABASE_URL || !pool) return fallback();
+  try {
+    return await operation();
+  } catch (error) {
+    console.warn('Database operation failed; using fallback state.', error.message);
+    const jsonState = loadFromJson();
+    if (typeof fallback === 'function') return fallback(jsonState);
+    return jsonState;
+  }
+}
+
 function load() {
   if (!cache) {
     cache = loadFromJson();
@@ -173,7 +185,10 @@ function save(state) {
   cache = current;
 
   if (DATABASE_URL && pool) {
-    return saveToDatabase(current);
+    return safeDatabaseOperation(() => saveToDatabase(current), () => {
+      saveToJson(current);
+      return current;
+    });
   }
 
   saveToJson(current);
@@ -183,7 +198,14 @@ function save(state) {
 let queue = Promise.resolve();
 function update(mutator) {
   queue = queue.then(async () => {
-    const current = cache || (await initialize());
+    let current = cache; 
+    try {
+      current = current || (await initialize());
+    } catch (error) {
+      console.warn('Initialize failed; using JSON fallback.', error.message);
+      current = loadFromJson();
+    }
+
     const result = mutator(current);
     if (result && result.error) {
       return result;

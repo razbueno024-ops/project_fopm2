@@ -9,11 +9,16 @@
 <body>
   <div class="topbar">
     <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> FOPM Admin</div>
-    <div style="display:flex; gap:10px;">
+    <div style="display:flex; gap:10px; align-items:center;">
       <button class="btn btn-primary btn-sm" id="createBtn">New concern</button>
       <button class="btn btn-ghost btn-sm" id="analyticsBtn">Analytics</button>
+      <button class="btn btn-ghost btn-sm" id="seniorModeBtn" type="button" aria-pressed="false">Senior mode</button>
       <a class="btn btn-ghost btn-sm" href="/api/admin/export.csv">Export CSV</a>
       <button class="btn btn-ghost btn-sm" id="usersBtn">Admin users</button>
+      <div class="notification-wrap">
+        <button class="btn btn-ghost btn-sm" id="notificationsBtn" aria-label="Notifications">Alerts</button>
+        <div id="notificationPanel" class="notification-panel"></div>
+      </div>
       <button class="btn btn-ghost btn-sm" id="settingsBtn">Settings</button>
       <button class="btn btn-ghost btn-sm" id="logoutBtn">Log out</button>
     </div>

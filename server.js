@@ -78,15 +78,54 @@ function hasValidFileSignature(filePath, mimeType) {
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
+function createAdminToken(username, role) {
+  const payload = Buffer.from(JSON.stringify({ username, role, issuedAt: Date.now() })).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifyAdminToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, signature] = parts;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!decoded.username || !decoded.role) return null;
+    return decoded;
+  } catch (error) {
+    return null;
+  }
+}
+
+function resolveAdminIdentity(req) {
+  if (req.session?.isAdmin) {
+    return { username: req.session.username || 'admin', role: req.session.role || 'admin' };
+  }
+  const token = req.headers['x-fopm-admin-token'] || req.query?.adminToken;
+  const payload = verifyAdminToken(token);
+  if (payload) {
+    req.session.isAdmin = true;
+    req.session.username = payload.username;
+    req.session.role = payload.role;
+    return { username: payload.username, role: payload.role };
+  }
+  return null;
+}
+
 function requireAdmin(req, res, next) {
-  if (req.session && req.session.isAdmin) return next();
+  const identity = resolveAdminIdentity(req);
+  if (identity) return next();
   return res.status(401).json({ error: 'Admin login required.' });
 }
 
 function requireAdminRole(...roles) {
   return (req, res, next) => {
-    if (!req.session?.isAdmin) return res.status(401).json({ error: 'Admin login required.' });
-    if (roles.length && !roles.includes(req.session.role || 'admin')) {
+    const identity = resolveAdminIdentity(req);
+    if (!identity) return res.status(401).json({ error: 'Admin login required.' });
+    if (roles.length && !roles.includes(identity.role || 'admin')) {
       return res.status(403).json({ error: 'Your admin role cannot perform this action.' });
     }
     next();
@@ -221,7 +260,8 @@ app.post('/api/admin/login', (req, res) => {
   req.session.isAdmin = true;
   req.session.username = username;
   req.session.role = account.role || 'admin';
-  res.json({ ok: true, username, role: req.session.role });
+  const token = createAdminToken(username, req.session.role);
+  res.json({ ok: true, username, role: req.session.role, token });
 });
 
 app.post('/api/admin/logout', (req, res) => {
@@ -229,7 +269,11 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 app.get('/api/admin/session', (req, res) => {
-  res.json({ isAdmin: !!(req.session && req.session.isAdmin), username: req.session?.username || null, role: req.session?.role || null });
+  const identity = resolveAdminIdentity(req);
+  if (identity) {
+    return res.json({ isAdmin: true, username: identity.username, role: identity.role });
+  }
+  res.json({ isAdmin: false, username: null, role: null });
 });
 
 app.post('/api/admin/users', requireAdminRole('admin'), (req, res) => {
@@ -489,7 +533,11 @@ app.get('/api/admin/threads', requireAdmin, (req, res) => {
   let threads = state.threads;
   if (towerId) threads = threads.filter(t => t.towerId === towerId);
   if (status) threads = threads.filter(t => t.status === status);
-  threads = threads.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  threads = threads.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(thread => ({
+    ...thread,
+    unreadCount: thread.adminUnread ? 1 : 0,
+    hasNewVerification: !!(thread.verification && thread.verification.status === 'pending')
+  }));
   res.json(threads);
 });
 
@@ -566,6 +614,33 @@ app.post('/api/admin/maintenance', canModerate, (req, res) => {
 
 app.get('/api/admin/maintenance', canModerate, (req, res) => res.json(ensureState(db.load()).maintenance));
 
+app.post('/api/admin/threads/:token/read', canModerate, (req, res) => {
+  db.update(d => {
+    ensureState(d);
+    const thread = d.threads.find(t => t.token === req.params.token);
+    if (!thread) return { error: 'not_found' };
+    thread.adminUnread = false;
+    d.notifications = (d.notifications || []).map(item => item.threadToken === thread.token ? { ...item, read: true } : item);
+    return { ok: true };
+  }).then(result => {
+    if (result?.error) return res.status(404).json({ error: 'Not found.' });
+    res.json({ ok: true });
+  });
+});
+
+app.post('/api/admin/threads/:token/unread', canModerate, (req, res) => {
+  db.update(d => {
+    ensureState(d);
+    const thread = d.threads.find(t => t.token === req.params.token);
+    if (!thread) return { error: 'not_found' };
+    thread.adminUnread = true;
+    return { ok: true };
+  }).then(result => {
+    if (result?.error) return res.status(404).json({ error: 'Not found.' });
+    res.json({ ok: true });
+  });
+});
+
 app.get('/api/admin/threads/:token', canModerate, (req, res) => {
   const state = ensureState(db.load());
   const thread = state.threads.find(t => t.token === req.params.token);
@@ -574,6 +649,7 @@ app.get('/api/admin/threads/:token', canModerate, (req, res) => {
   db.update(d => {
     const th = d.threads.find(t => t.token === req.params.token);
     if (th) th.adminUnread = false;
+    d.notifications = (d.notifications || []).map(item => item.threadToken === req.params.token ? { ...item, read: true } : item);
   });
   const tower = state.towers.find(t => t.id === thread.towerId);
   res.json({ thread, tower });

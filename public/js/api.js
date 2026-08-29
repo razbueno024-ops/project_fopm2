@@ -1,14 +1,24 @@
 // api.js — small shared helpers used across every page.
 
 async function apiGet(url) {
-  const res = await fetch(url);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Request failed.');
+  const token = localStorage.getItem('fopm-admin-token');
+  const res = await fetch(url, {
+    credentials: 'same-origin',
+    headers: token ? { 'X-FOPM-Admin-Token': token } : {}
+  });
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = { error: text }; }
+  }
+  if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status}).`);
   return data;
 }
 
 async function apiSend(url, method, body, isForm) {
-  const opts = { method, headers: {} };
+  const token = localStorage.getItem('fopm-admin-token');
+  const opts = { method, headers: {}, credentials: 'same-origin' };
+  if (token) opts.headers['X-FOPM-Admin-Token'] = token;
   if (isForm) {
     opts.body = body;
   } else {
@@ -16,8 +26,15 @@ async function apiSend(url, method, body, isForm) {
     opts.body = JSON.stringify(body || {});
   }
   const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Request failed.');
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = { error: text }; }
+  }
+  if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status}).`);
+  if (url === '/api/admin/login' && data && data.token) {
+    localStorage.setItem('fopm-admin-token', data.token);
+  }
   return data;
 }
 

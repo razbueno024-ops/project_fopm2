@@ -5,16 +5,54 @@ let currentFilter = { towerId: null, status: null, label: 'All towers' };
 let towersCache = [];
 let searchTerm = '';
 let currentRole = 'admin';
+let lastNotificationCount = 0;
+let lastNotificationId = null;
+let adminPollHandle = null;
 const statusLabels = { new: 'New', 'in-progress': 'In progress', resolved: 'Resolved', open: 'Open', satisfied: 'Resolved' };
 
-function keywordScore(title, query) {
-  const normalizedTitle = title.toLowerCase();
+function playAlertTone(type = 'concern') {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  try {
+    const ctx = new AudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = type === 'verification' ? 'triangle' : 'sine';
+    oscillator.frequency.value = type === 'verification' ? 660 : 440;
+    gain.gain.value = 0.03;
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.18);
+    setTimeout(() => ctx.close(), 220);
+  } catch (error) {
+    // Ignore unsupported browser audio behavior.
+  }
+}
+
+function notifyNewActivity(message, type = 'concern') {
+  playAlertTone(type);
+  toast(message, false);
+}
+
+function setSaveState(message, isError = false) {
+  const pill = document.getElementById('saveStatusPill');
+  if (!pill) return;
+  pill.textContent = message;
+  pill.classList.toggle('error', !!isError);
+  pill.classList.add('show');
+  clearTimeout(pill._timer);
+  pill._timer = setTimeout(() => pill.classList.remove('show'), 2200);
+}
+
+function keywordScore(title, query, extras = []) {
+  const haystack = [title, ...extras].filter(Boolean).join(' ').toLowerCase();
   const normalizedQuery = query.toLowerCase().trim();
   if (!normalizedQuery) return 0;
-  if (normalizedTitle === normalizedQuery) return 1000;
-  if (normalizedTitle.includes(normalizedQuery)) return 800;
+  if (haystack === normalizedQuery) return 1000;
+  if (haystack.includes(normalizedQuery)) return 800;
   return normalizedQuery.split(/\s+/).reduce((score, word) => {
-    if (normalizedTitle.includes(word)) return score + 100;
+    if (haystack.includes(word)) return score + 100;
     return score;
   }, 0);
 }
@@ -64,7 +102,7 @@ async function renderThreadList() {
   const query = searchTerm.trim();
   if (query) {
     threads = threads
-      .map(thread => ({ thread, score: keywordScore(thread.title, query) }))
+      .map(thread => ({ thread, score: keywordScore(thread.title, query, [thread.submitterName, thread.submitterUnit, thread.category, thread.location, thread.assignedTo, statusLabels[thread.status] || '']) }))
       .filter(result => result.score > 0)
       .sort((left, right) => right.score - left.score)
       .map(result => result.thread);
@@ -72,37 +110,72 @@ async function renderThreadList() {
   const main = document.getElementById('main');
 
   if (!threads.length) {
-    main.innerHTML = `<h2 style="font-size:1.3rem;">Concerns</h2><input class="admin-search" id="threadSearch" placeholder="Search this tower's concern titles..." value="${escapeHtml(searchTerm)}"><div class="empty-state"><div class="glyph">📭</div>No concerns match this search or filter.</div>`;
+    main.innerHTML = `<div class="thread-header"><h2 style="font-size:1.3rem;">Concerns</h2><button class="btn btn-ghost btn-sm" id="clearFiltersBtn" type="button">Clear filters</button></div><div class="toolbar-box"><input class="admin-search" id="threadSearch" placeholder="Search by title, resident, staff, category, or location..." value="${escapeHtml(searchTerm)}"></div><div class="empty-state"><div class="glyph">📭</div>No concerns match this search or filter.</div>`;
     wireThreadSearch();
+    const clearBtn = document.getElementById('clearFiltersBtn');
+    if (clearBtn) clearBtn.onclick = () => { searchTerm = ''; currentFilter.status = null; currentFilter.towerId = null; renderSidebar(); renderThreadList(); };
     return;
   }
 
   main.innerHTML = `
-    <h2 style="font-size:1.3rem;">Concerns</h2>
-    <input class="admin-search" id="threadSearch" placeholder="Search this tower's concern titles..." value="${escapeHtml(searchTerm)}">
+    <div class="thread-header">
+      <h2 style="font-size:1.3rem;">Concerns</h2>
+      <button class="btn btn-ghost btn-sm" id="clearFiltersBtn" type="button">Clear filters</button>
+    </div>
+    <div class="toolbar-box">
+      <input class="admin-search" id="threadSearch" placeholder="Search by title, resident, staff, category, or location..." value="${escapeHtml(searchTerm)}">
+    </div>
     <div class="thread-list">
       ${threads.map(t => {
         const tower = towersCache.find(tw => tw.id === t.towerId) || {};
+        const unreadCount = Number(t.unreadCount || 0);
+        const isNewVerification = !!t.hasNewVerification;
         return `
-        <div class="thread-row fade-in" style="--tower-accent:${tower.accent || '#4C7EA8'}" data-token="${t.token}">
-          <div>
-            <div class="title">${t.adminUnread ? '🔴 ' : ''}${escapeHtml(t.title)}</div>
+        <div class="thread-row fade-in ${isNewVerification ? 'thread-row--alert' : ''}" style="--tower-accent:${tower.accent || '#4C7EA8'}" data-token="${t.token}">
+          <div class="thread-row-main">
+            <div class="title-row">
+              <div class="title">${escapeHtml(t.title)}</div>
+              ${unreadCount ? `<span class="badge badge-notify thread-unread-badge" aria-label="${unreadCount} unread messages">${unreadCount}</span>` : ''}
+              ${isNewVerification ? `<span class="badge badge-alert" aria-label="New verification pending">New verification</span>` : ''}
+            </div>
             <div class="thread-meta">
               <span>${tower.name || 'Tower'}</span>
               <span>${escapeHtml(t.submitterName || 'Anonymous')}${t.submitterUnit ? ' · ' + escapeHtml(t.submitterUnit) : ''}</span>
+              <span>${escapeHtml(t.category || 'General')}</span>
               <span>${t.messages.length} message${t.messages.length===1?'':'s'}</span>
               <span>updated ${timeAgo(t.updatedAt)}</span>
             </div>
           </div>
-          <span class="badge ${t.status==='resolved'?'badge-satisfied':'badge-open'}"><span class="badge-dot"></span>${statusLabels[t.status] || 'New'}</span>
+          <div class="thread-row-actions">
+            <span class="badge ${t.status==='resolved'?'badge-satisfied':'badge-open'}"><span class="badge-dot"></span>${statusLabels[t.status] || 'New'}</span>
+            <button class="thread-read-toggle" type="button" data-token="${t.token}" data-unread="${t.adminUnread ? 'true' : 'false'}">${t.adminUnread ? 'Mark read' : 'Mark unread'}</button>
+          </div>
         </div>`;
       }).join('')}
     </div>
   `;
   main.querySelectorAll('.thread-row').forEach(el => {
     el.style.cursor = 'pointer';
-    el.onclick = () => renderThreadDetail(el.dataset.token);
+    el.onclick = (event) => {
+      if (!event.target.closest('.thread-read-toggle')) {
+        renderThreadDetail(el.dataset.token);
+      }
+    };
   });
+  main.querySelectorAll('.thread-read-toggle').forEach(btn => {
+    btn.onclick = async (event) => {
+      event.stopPropagation();
+      const token = btn.dataset.token;
+      const unread = btn.dataset.unread === 'true';
+      await apiPost(`/api/admin/threads/${token}/${unread ? 'read' : 'unread'}`);
+      setSaveState(unread ? 'Marked read' : 'Marked unread');
+      renderSidebar();
+      renderThreadList();
+      renderNotificationPanel();
+    };
+  });
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  if (clearBtn) clearBtn.onclick = () => { searchTerm = ''; currentFilter.status = null; currentFilter.towerId = null; renderSidebar(); renderThreadList(); };
   wireThreadSearch();
 }
 
@@ -120,6 +193,16 @@ function wireThreadSearch() {
       }
     });
   };
+}
+
+function applySeniorModePreference() {
+  const enabled = localStorage.getItem('fopm-senior-mode') === 'true';
+  document.body.classList.toggle('senior-mode', enabled);
+  const btn = document.getElementById('seniorModeBtn');
+  if (btn) {
+    btn.setAttribute('aria-pressed', String(enabled));
+    btn.textContent = enabled ? 'Senior mode on' : 'Senior mode';
+  }
 }
 
 function renderCreateForm() {
@@ -170,9 +253,37 @@ function renderMsg(m) {
 
 let verificationCollapsed = {};
 
+async function renderNotificationPanel() {
+  const panel = document.getElementById('notificationPanel');
+  const bell = document.getElementById('notificationsBtn');
+  if (!panel || !bell) return;
+  const items = await apiGet('/api/admin/notifications').catch(() => []);
+  const unread = items.filter(item => !item.read).length;
+  const latestItem = items[0];
+  if (typeof lastNotificationCount === 'number' && unread > lastNotificationCount) {
+    const type = latestItem?.type === 'verification' ? 'verification' : 'concern';
+    notifyNewActivity(latestItem?.message || 'New update received.', type);
+  }
+  lastNotificationCount = unread;
+  lastNotificationId = latestItem?.id || null;
+  bell.dataset.unread = unread;
+  bell.classList.toggle('has-unread', unread > 0);
+  panel.innerHTML = items.length ? items.slice(0, 8).map(item => `
+    <div class="notification-item ${item.read ? '' : 'unread'}">
+      <div class="notification-dot"></div>
+      <div>
+        <strong>${escapeHtml(item.message || 'Update')}</strong>
+        <div class="thread-meta">${timeAgo(item.createdAt)}</div>
+      </div>
+    </div>
+  `).join('') : '<div class="notification-empty">No recent updates.</div>';
+}
+
 async function renderThreadDetail(token) {
   const { thread, tower } = await apiGet(`/api/admin/threads/${token}`);
   const verification = currentRole === 'admin' ? await apiGet(`/api/admin/threads/${token}/verification`) : { status: 'admin-only' };
+  const defaultCollapsed = verification.status !== 'not-submitted';
+  verificationCollapsed[token] = verificationCollapsed[token] ?? defaultCollapsed;
   setTowerTheme(tower.accent);
   renderSidebar(); // refresh unread badges since viewing clears them
 
@@ -183,7 +294,8 @@ async function renderThreadDetail(token) {
     <h2 style="font-size:1.4rem;">${escapeHtml(thread.title)}</h2>
     <div class="thread-status-bar">
       <span class="badge ${thread.status==='resolved'?'badge-satisfied':'badge-open'}"><span class="badge-dot"></span>${statusLabels[thread.status] || 'New'}</span>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-sm ${thread.adminUnread ? 'btn-ghost' : 'btn-primary'}" id="toggleReadStateBtn">${thread.adminUnread ? 'Mark as read' : 'Mark as unread'}</button>
         ${thread.status !== 'resolved'
           ? `<button class="btn btn-sm" id="closeBtn">Mark satisfied &amp; close</button>`
           : `<button class="btn btn-sm" id="reopenBtn">Reopen thread</button>`}
@@ -193,7 +305,10 @@ async function renderThreadDetail(token) {
     <div class="card thread-controls">
       <div class="field"><label for="statusSelect">Workflow status</label><select id="statusSelect">${['new', 'in-progress', 'resolved'].map(status => `<option value="${status}" ${thread.status === status ? 'selected' : ''}>${statusLabels[status]}</option>`).join('')}</select></div>
       <div class="field"><label for="assignedTo">Assigned staff username</label><input id="assignedTo" value="${escapeHtml(thread.assignedTo || '')}" placeholder="Unassigned"></div>
-      <button class="btn btn-sm" id="saveControls">Save workflow</button>
+      <div class="inline-save-row">
+        <button class="btn btn-sm" id="saveControls">Save workflow</button>
+        <span id="saveStatusPill" class="save-status">Saved</span>
+      </div>
     </div>
     <div class="card"><strong>Concern details</strong><div class="thread-meta" style="margin-top:8px;">${escapeHtml(thread.category)} · ${escapeHtml(thread.urgency)} · ${escapeHtml(thread.location || 'Location not set')}</div></div>
     ${currentRole === 'admin' ? `<div class="card verification-review">
@@ -224,11 +339,28 @@ async function renderThreadDetail(token) {
   `;
 
   document.getElementById('backBtn').onclick = renderThreadList;
+  const toggleReadStateBtn = document.getElementById('toggleReadStateBtn');
+  if (toggleReadStateBtn) {
+    toggleReadStateBtn.onclick = async () => {
+      const unread = !thread.adminUnread;
+      await apiPost(`/api/admin/threads/${token}/${unread ? 'unread' : 'read'}`);
+      setSaveState(unread ? 'Marked unread' : 'Marked read');
+      renderSidebar();
+      renderThreadList();
+      renderNotificationPanel();
+    };
+  }
   document.getElementById('saveControls').onclick = async () => {
-    await apiPatch(`/api/admin/threads/${token}/status`, { status: document.getElementById('statusSelect').value });
-    await apiPatch(`/api/admin/threads/${token}/assignment`, { assignedTo: document.getElementById('assignedTo').value });
-    toast('Workflow updated.');
-    renderThreadDetail(token);
+    try {
+      await apiPatch(`/api/admin/threads/${token}/status`, { status: document.getElementById('statusSelect').value });
+      await apiPatch(`/api/admin/threads/${token}/assignment`, { assignedTo: document.getElementById('assignedTo').value });
+      setSaveState('Saved automatically');
+      toast('Workflow updated.');
+      renderThreadDetail(token);
+    } catch (err) {
+      setSaveState(err.message, true);
+      toast(err.message, true);
+    }
   };
   document.getElementById('maintenanceForm').onsubmit = async event => {
     event.preventDefault();
@@ -248,12 +380,14 @@ async function renderThreadDetail(token) {
   
   const verificationToggle = document.getElementById('verificationToggle');
   if (verificationToggle && verification.status !== 'not-submitted') {
+    const content = document.querySelector('.verification-review .collapsible-content');
+    const btn = document.querySelector('.collapse-btn');
+    if (content) content.classList.toggle('collapsed', !!verificationCollapsed[token]);
+    if (btn) btn.textContent = verificationCollapsed[token] ? '▶' : '▼';
     verificationToggle.addEventListener('click', (e) => {
       e.preventDefault();
       verificationCollapsed[token] = !verificationCollapsed[token];
-      const content = document.querySelector('.verification-review .collapsible-content');
-      const btn = document.querySelector('.collapse-btn');
-      if (content) content.classList.toggle('collapsed');
+      if (content) content.classList.toggle('collapsed', !!verificationCollapsed[token]);
       if (btn) btn.textContent = verificationCollapsed[token] ? '▶' : '▼';
     });
   }
@@ -325,6 +459,13 @@ document.getElementById('logoutBtn').onclick = async () => {
 document.getElementById('createBtn').onclick = renderCreateForm;
 document.getElementById('analyticsBtn').onclick = () => renderAnalytics().catch(error => toast(error.message, true));
 document.getElementById('usersBtn').onclick = () => renderUsers().catch(error => toast(error.message, true));
+document.getElementById('seniorModeBtn').onclick = () => {
+  const enabled = !document.body.classList.contains('senior-mode');
+  document.body.classList.toggle('senior-mode', enabled);
+  localStorage.setItem('fopm-senior-mode', String(enabled));
+  document.getElementById('seniorModeBtn').setAttribute('aria-pressed', String(enabled));
+  document.getElementById('seniorModeBtn').textContent = enabled ? 'Senior mode on' : 'Senior mode';
+};
 
 const settingsPanel = document.getElementById('settingsPanel');
 document.getElementById('settingsBtn').onclick = () => settingsPanel.style.display = 'flex';
@@ -342,10 +483,47 @@ document.getElementById('pwForm').onsubmit = async (e) => {
   } catch (err) { toast(err.message, true); }
 };
 
+function startAdminPolling() {
+  if (adminPollHandle) return;
+  adminPollHandle = setInterval(() => {
+    if (document.hidden || document.visibilityState !== 'visible') return;
+    renderSidebar().catch(() => {});
+    renderNotificationPanel().catch(() => {});
+  }, 30000);
+}
+
 (async function init() {
-  await guard();
-  await renderSidebar();
-  await renderThreadList();
-  // Light polling so admin sees new feedback notifications per tower without a manual refresh.
-  setInterval(renderSidebar, 15000);
-})().catch(() => {});
+  try {
+    applySeniorModePreference();
+    await guard();
+    await renderSidebar();
+    await renderThreadList();
+    await renderNotificationPanel();
+    const notificationsBtn = document.getElementById('notificationsBtn');
+    const notificationPanel = document.getElementById('notificationPanel');
+    if (notificationsBtn) {
+      notificationsBtn.addEventListener('click', async () => {
+        notificationPanel.classList.toggle('open');
+        if (notificationPanel.classList.contains('open')) {
+          await renderNotificationPanel();
+        }
+      });
+    }
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#notificationsBtn') && !event.target.closest('#notificationPanel')) {
+        notificationPanel?.classList.remove('open');
+      }
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        renderSidebar().catch(() => {});
+        renderNotificationPanel().catch(() => {});
+      }
+    });
+    startAdminPolling();
+  } catch (error) {
+    if (error?.message !== 'redirect') {
+      console.error(error);
+    }
+  }
+})();

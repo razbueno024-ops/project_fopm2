@@ -69,6 +69,41 @@ test('does not expose pending feedback or stale image URLs publicly', async () =
   assert.equal(data.thread.messages.some(message => message.attachment && message.attachment.includes('8c938bb1')), false);
 });
 
+test('exposes unread and new-verification metadata for the admin board', async () => {
+  const cookieJar = new Map();
+  const request = async (url, options = {}) => {
+    const headers = new Headers(options.headers || {});
+    const cookieHeader = Array.from(cookieJar.entries()).map(([name, value]) => `${name}=${value}`).join('; ');
+    if (cookieHeader) headers.set('Cookie', cookieHeader);
+    const response = await fetch(url, { ...options, headers });
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie) {
+      const cookie = setCookie.split(';')[0];
+      const [name, value] = cookie.split('=');
+      cookieJar.set(name, value);
+    }
+    return response;
+  };
+
+  const login = await request(`${baseUrl}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  });
+  assert.equal(login.status, 200, 'admin login should succeed');
+  const loginBody = await login.json();
+  assert.ok(loginBody.token, 'login should return a browser-safe admin token');
+
+  const response = await request(`${baseUrl}/api/admin/threads`, {
+    headers: { 'X-FOPM-Admin-Token': loginBody.token }
+  });
+  assert.equal(response.status, 200);
+  const threads = await response.json();
+  assert.ok(Array.isArray(threads));
+  assert.ok(threads.every(thread => typeof thread.unreadCount === 'number'));
+  assert.ok(threads.every(thread => typeof thread.hasNewVerification === 'boolean'));
+});
+
 test('blocks the retired resident reply bypass', async () => {
   const response = await fetch(`${baseUrl}/api/threads/kf4c2wknm2/reply`, { method: 'POST' });
   assert.equal(response.status, 410);
@@ -107,6 +142,41 @@ test('bootstraps a safe default state if the database file is missing or empty',
     assert.ok(state.admin && state.admin.username === 'admin');
     assert.ok(Array.isArray(state.towers) && state.towers.length > 0);
   } finally {
+    fs.writeFileSync(dbFile, original);
+    delete require.cache[require.resolve('../db')];
+  }
+});
+
+test('falls back to the JSON store if PostgreSQL is unavailable', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dbFile = path.join(__dirname, '..', 'data', 'db.json');
+  const original = fs.readFileSync(dbFile, 'utf8');
+  const pg = require('pg');
+  const originalPool = pg.Pool;
+
+  try {
+    pg.Pool = class {
+      constructor() {
+        this.query = async () => {
+          throw new Error('database unavailable');
+        };
+      }
+    };
+    delete require.cache[require.resolve('../db')];
+    const db = require('../db');
+    fs.writeFileSync(dbFile, JSON.stringify({ admin: { username: 'admin', passwordHash: '$2b$10$9zSDcqPAqbTNIwtkKxnSveBIdvHw9MJDj/g/eTgkJFucAW9xOiG4u' }, towers: [], threads: [], nextThreadSeq: 1, adminUsers: [{ username: 'admin', role: 'admin', passwordHash: '$2b$10$9zSDcqPAqbTNIwtkKxnSveBIdvHw9MJDj/g/eTgkJFucAW9xOiG4u' }], notifications: [], maintenance: [] }, null, 2));
+
+    await db.update(state => {
+      state.threads.push({ token: 'fallback-test', title: 'Fallback thread', status: 'new', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), towerId: 1, messages: [], category: 'General', urgency: 'normal', location: '', history: [] });
+      return { ok: true };
+    });
+
+    const state = db.load();
+    assert.ok(Array.isArray(state.threads));
+    assert.ok(state.threads.some(thread => thread.token === 'fallback-test'));
+  } finally {
+    pg.Pool = originalPool;
     fs.writeFileSync(dbFile, original);
     delete require.cache[require.resolve('../db')];
   }
