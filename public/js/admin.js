@@ -259,7 +259,7 @@ async function renderNotificationPanel() {
   bell.classList.toggle('has-unread', unread > 0);
   panel.innerHTML = items.length ? items.slice(0, 8).map(item => `
     <div class="notification-item ${item.read ? 'read' : 'unread'}" data-id="${escapeHtml(item.id || '')}" data-thread-token="${escapeHtml(item.threadToken || '')}" data-notification-type="${escapeHtml(item.type || 'concern')}" style="cursor:pointer;">
-      <div class="notification-dot" aria-hidden="true"></div>
+      <div class="notification-dot ${item.read ? 'read' : ''}" aria-hidden="true"></div>
       <div style="flex:1; min-width:0;">
         <strong>${escapeHtml(item.message || 'Update')}</strong>
         <div class="thread-meta">${timeAgo(item.createdAt)}${item.read ? ' · read' : ' · unread'}</div>
