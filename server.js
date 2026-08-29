@@ -132,7 +132,7 @@ function requireAdminRole(...roles) {
   };
 }
 
-const canModerate = requireAdminRole('admin', 'manager');
+const canModerate = requireAdminRole('admin', 'manager', 'official');
 const canManageUsers = requireAdminRole('admin');
 const canReviewIdentity = requireAdminRole('admin');
 
@@ -278,7 +278,7 @@ app.get('/api/admin/session', (req, res) => {
 
 app.post('/api/admin/users', requireAdminRole('admin'), (req, res) => {
   const { username, password, role = 'staff' } = req.body || {};
-  if (!username || !password || password.length < 6 || !['admin', 'manager', 'staff'].includes(role)) {
+  if (!username || !password || password.length < 6 || !['admin', 'manager', 'staff', 'official'].includes(role)) {
     return res.status(400).json({ error: 'Provide a username, a password of at least 6 characters, and a valid role.' });
   }
   db.update(state => {
@@ -287,6 +287,21 @@ app.post('/api/admin/users', requireAdminRole('admin'), (req, res) => {
     state.adminUsers.push({ username, role, passwordHash: bcrypt.hashSync(password, 10) });
     return { ok: true };
   }).then(result => result?.error ? res.status(409).json({ error: 'That admin username already exists.' }) : res.status(201).json({ ok: true }));
+});
+
+app.delete('/api/admin/users/:username', requireAdminRole('admin'), (req, res) => {
+  const username = decodeURIComponent(req.params.username || '');
+  if (!username) return res.status(400).json({ error: 'No username was provided.' });
+  const state = ensureState(db.load());
+  if (username === state.admin.username) {
+    return res.status(403).json({ error: 'The primary admin account cannot be terminated.' });
+  }
+  if (!state.adminUsers.some(user => user.username === username)) {
+    return res.status(404).json({ error: 'No matching admin user was found.' });
+  }
+  state.adminUsers = state.adminUsers.filter(user => user.username !== username);
+  db.save(state);
+  res.json({ ok: true, username });
 });
 
 app.get('/api/admin/users', canManageUsers, (req, res) => {

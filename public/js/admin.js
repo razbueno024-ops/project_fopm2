@@ -195,14 +195,17 @@ function wireThreadSearch() {
   };
 }
 
-function applySeniorModePreference() {
-  const enabled = localStorage.getItem('fopm-senior-mode') === 'true';
-  document.body.classList.toggle('senior-mode', enabled);
-  const btn = document.getElementById('seniorModeBtn');
-  if (btn) {
-    btn.setAttribute('aria-pressed', String(enabled));
-    btn.textContent = enabled ? 'Senior mode on' : 'Senior mode';
-  }
+function bindPasswordVisibility(root = document) {
+  root.querySelectorAll('.password-toggle').forEach(button => {
+    const input = root.getElementById(button.dataset.targetId);
+    if (!input) return;
+    button.addEventListener('click', () => {
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      button.textContent = visible ? 'Show' : 'Hide';
+      button.setAttribute('aria-pressed', String(!visible));
+    });
+  });
 }
 
 function renderCreateForm() {
@@ -226,7 +229,17 @@ async function renderAnalytics() {
 
 async function renderUsers() {
   const users = await apiGet('/api/admin/users');
-  document.getElementById('main').innerHTML = `<div class="eyebrow">Access control</div><h2>Admin users</h2><div class="card"><div class="thread-list">${users.map(user => `<div class="analytics-row"><span>${escapeHtml(user.username)}</span><strong>${escapeHtml(user.role)}</strong></div>`).join('')}</div><form id="userForm" style="margin-top:20px;"><div class="field"><label>Username</label><input id="newUsername" required></div><div class="field"><label>Password</label><input id="newUserPassword" type="password" minlength="6" required></div><div class="field"><label>Role</label><select id="newUserRole"><option>staff</option><option>manager</option><option>admin</option></select></div><button class="btn btn-primary" type="submit">Add admin user</button></form></div>`;
+  document.getElementById('main').innerHTML = `<div class="eyebrow">Access control</div><h2>Admin users</h2><div class="card"><div class="thread-list">${users.map(user => `<div class="analytics-row" style="display:flex; justify-content:space-between; gap:12px; align-items:center;"><div><span>${escapeHtml(user.username)}</span><strong style="margin-left:10px;">${escapeHtml(user.role)}</strong></div><button class="btn btn-danger btn-sm" data-delete-user="${escapeHtml(user.username)}" type="button">Terminate</button></div>`).join('')}</div><form id="userForm" style="margin-top:20px;"><div class="field"><label>Username</label><input id="newUsername" required></div><div class="field"><label>Password</label><div class="password-row"><input id="newUserPassword" type="password" minlength="6" required><button type="button" class="btn btn-ghost btn-sm password-toggle" data-target-id="newUserPassword">Show</button></div></div><div class="field"><label>Role</label><select id="newUserRole"><option value="staff">staff</option><option value="official">official</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn btn-primary" type="submit">Add admin user</button></form></div>`;
+  bindPasswordVisibility();
+  document.querySelectorAll('[data-delete-user]').forEach(button => {
+    button.onclick = async () => {
+      const username = button.dataset.deleteUser;
+      if (!confirm(`Terminate admin user ${username}?`)) return;
+      await apiDelete(`/api/admin/users/${encodeURIComponent(username)}`);
+      toast('Admin user terminated.');
+      renderUsers();
+    };
+  });
   document.getElementById('userForm').onsubmit = async event => {
     event.preventDefault();
     await apiPost('/api/admin/users', { username: newUsername.value, password: newUserPassword.value, role: newUserRole.value });
@@ -459,17 +472,11 @@ document.getElementById('logoutBtn').onclick = async () => {
 document.getElementById('createBtn').onclick = renderCreateForm;
 document.getElementById('analyticsBtn').onclick = () => renderAnalytics().catch(error => toast(error.message, true));
 document.getElementById('usersBtn').onclick = () => renderUsers().catch(error => toast(error.message, true));
-document.getElementById('seniorModeBtn').onclick = () => {
-  const enabled = !document.body.classList.contains('senior-mode');
-  document.body.classList.toggle('senior-mode', enabled);
-  localStorage.setItem('fopm-senior-mode', String(enabled));
-  document.getElementById('seniorModeBtn').setAttribute('aria-pressed', String(enabled));
-  document.getElementById('seniorModeBtn').textContent = enabled ? 'Senior mode on' : 'Senior mode';
-};
 
 const settingsPanel = document.getElementById('settingsPanel');
 document.getElementById('settingsBtn').onclick = () => settingsPanel.style.display = 'flex';
 document.getElementById('closeSettings').onclick = () => settingsPanel.style.display = 'none';
+bindPasswordVisibility();
 document.getElementById('pwForm').onsubmit = async (e) => {
   e.preventDefault();
   try {
@@ -494,7 +501,6 @@ function startAdminPolling() {
 
 (async function init() {
   try {
-    applySeniorModePreference();
     await guard();
     await renderSidebar();
     await renderThreadList();

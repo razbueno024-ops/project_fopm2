@@ -19,7 +19,10 @@
         </div>
         <div class="field">
           <label for="password">Password</label>
-          <input id="password" type="password" required>
+          <div class="password-row">
+            <input id="password" type="password" required>
+            <button type="button" class="btn btn-ghost btn-sm password-toggle" data-target-id="password">Show</button>
+          </div>
         </div>
         <button class="btn btn-primary" style="width:100%;" type="submit" id="btn">Sign in</button>
       </form>
@@ -29,6 +32,19 @@
   </div>
 <script src="/js/api.js"></script>
 <script>
+function bindPasswordVisibility(root = document) {
+  root.querySelectorAll('.password-toggle').forEach(button => {
+    const input = root.getElementById(button.dataset.targetId);
+    if (!input) return;
+    button.addEventListener('click', () => {
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      button.textContent = visible ? 'Show' : 'Hide';
+    });
+  });
+}
+
+bindPasswordVisibility();
 apiGet('/api/admin/session').then(s => { if (s.isAdmin) location.href = '/admin.html'; });
 document.getElementById('form').onsubmit = async (e) => {
   e.preventDefault();

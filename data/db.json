@@ -357,6 +357,11 @@
           "action": "verification:submitted",
           "at": "2026-08-29T07:15:07.469Z",
           "by": "Anonymous resident"
+        },
+        {
+          "action": "verification:submitted",
+          "at": "2026-08-29T07:35:11.465Z",
+          "by": "Anonymous resident"
         }
       ],
       "messages": [
@@ -395,14 +400,14 @@
         "documentType": "Building ID",
         "idNumber": "ABC123",
         "mimeType": "application/pdf",
-        "fileName": "67a590a8-fbf3-40bc-9800-b869cf877d3d.pdf",
+        "fileName": "3720fc26-5b5f-473d-9abd-bf8a6989ef3c.pdf",
         "dataUri": "data:application/pdf;base64,JVBERi0xLjQKJcOiw6PDj8OTCg==",
-        "submittedAt": "2026-08-29T07:15:07.469Z"
+        "submittedAt": "2026-08-29T07:35:11.465Z"
       },
       "pendingFeedback": {
         "text": "This is a new verification attempt while the concern is still open.",
         "attachment": null,
-        "submittedAt": "2026-08-29T07:15:07.469Z"
+        "submittedAt": "2026-08-29T07:35:11.465Z"
       }
     },
     {
@@ -694,6 +699,15 @@
       "towerId": 4,
       "message": "New identity verification requires review",
       "createdAt": "2026-08-29T07:15:07.469Z",
+      "read": false
+    },
+    {
+      "id": "500618d1-4704-41ad-86da-0b4ba2686ab9",
+      "type": "verification",
+      "threadToken": "kf4c2wknm2",
+      "towerId": 4,
+      "message": "New identity verification requires review",
+      "createdAt": "2026-08-29T07:35:11.465Z",
       "read": false
     }
   ],

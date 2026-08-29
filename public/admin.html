@@ -12,7 +12,6 @@
     <div style="display:flex; gap:10px; align-items:center;">
       <button class="btn btn-primary btn-sm" id="createBtn">New concern</button>
       <button class="btn btn-ghost btn-sm" id="analyticsBtn">Analytics</button>
-      <button class="btn btn-ghost btn-sm" id="seniorModeBtn" type="button" aria-pressed="false">Senior mode</button>
       <a class="btn btn-ghost btn-sm" href="/api/admin/export.csv">Export CSV</a>
       <button class="btn btn-ghost btn-sm" id="usersBtn">Admin users</button>
       <div class="notification-wrap">
@@ -36,8 +35,20 @@
     <div class="card login-card">
       <h3>Change admin password</h3>
       <form id="pwForm">
-        <div class="field"><label>Current password</label><input type="password" id="curPw" required></div>
-        <div class="field"><label>New password</label><input type="password" id="newPw" required minlength="6"></div>
+        <div class="field">
+          <label>Current password</label>
+          <div class="password-row">
+            <input type="password" id="curPw" required>
+            <button type="button" class="btn btn-ghost btn-sm password-toggle" data-target-id="curPw">Show</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>New password</label>
+          <div class="password-row">
+            <input type="password" id="newPw" required minlength="6">
+            <button type="button" class="btn btn-ghost btn-sm password-toggle" data-target-id="newPw">Show</button>
+          </div>
+        </div>
         <button class="btn btn-primary" style="width:100%;" type="submit">Update password</button>
       </form>
       <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:10px;" id="closeSettings">Close</button>
