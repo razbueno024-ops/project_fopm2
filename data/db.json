@@ -1,7 +1,7 @@
 {
   "admin": {
     "username": "admin",
-    "passwordHash": "$2b$10$Xw5xfdkHpXp7mXYZtIdM2u3Sy49LP4hG2JcwMc4KIMx24YUmlIzTK"
+    "passwordHash": "$2b$10$9zSDcqPAqbTNIwtkKxnSveBIdvHw9MJDj/g/eTgkJFucAW9xOiG4u"
   },
   "towers": [
     {
@@ -437,7 +437,7 @@
     {
       "username": "admin",
       "role": "admin",
-      "passwordHash": "$2b$10$Xw5xfdkHpXp7mXYZtIdM2u3Sy49LP4hG2JcwMc4KIMx24YUmlIzTK"
+      "passwordHash": "$2b$10$9zSDcqPAqbTNIwtkKxnSveBIdvHw9MJDj/g/eTgkJFucAW9xOiG4u"
     },
     {
       "username": "raz",

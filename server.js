@@ -148,7 +148,7 @@ function normalizePersistedMedia(state) {
 
 function ensureState(state) {
   const adminName = state.admin?.username || 'admin';
-  const adminHash = state.admin?.passwordHash || (Array.isArray(state.adminUsers) ? state.adminUsers.find(user => user.username === adminName)?.passwordHash : null) || '$2b$10$Xw5xfdkHpXp7mXYZtIdM2u3Sy49LP4hG2JcwMc4KIMx24YUmlIzTK';
+  const adminHash = state.admin?.passwordHash || (Array.isArray(state.adminUsers) ? state.adminUsers.find(user => user.username === adminName)?.passwordHash : null) || '$2b$10$9zSDcqPAqbTNIwtkKxnSveBIdvHw9MJDj/g/eTgkJFucAW9xOiG4u';
   const originalAdminHash = state.admin?.passwordHash;
   const originalAdminUsers = JSON.stringify(state.adminUsers || []);
 

@@ -7,7 +7,7 @@ const path = require('path');
 const { Pool } = require('pg');
 
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
-const DEFAULT_ADMIN_HASH = '$2b$10$Xw5xfdkHpXp7mXYZtIdM2u3Sy49LP4hG2JcwMc4KIMx24YUmlIzTK';
+const DEFAULT_ADMIN_HASH = '$2b$10$9zSDcqPAqbTNIwtkKxnSveBIdvHw9MJDj/g/eTgkJFucAW9xOiG4u';
 const DATABASE_URL = process.env.DATABASE_URL;
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
