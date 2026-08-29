@@ -61,3 +61,22 @@ test('allows a fresh verification submission while the concern remains open', as
   const data = await response.json();
   assert.equal(data.status, 'pending');
 });
+
+test('bootstraps a safe default state if the database file is missing or empty', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dbFile = path.join(__dirname, '..', 'data', 'db.json');
+  const original = fs.readFileSync(dbFile, 'utf8');
+
+  try {
+    fs.writeFileSync(dbFile, '');
+    const { load } = require('../db');
+    const state = load();
+    assert.ok(state && Array.isArray(state.threads));
+    assert.ok(state.admin && state.admin.username === 'admin');
+    assert.ok(Array.isArray(state.towers) && state.towers.length > 0);
+  } finally {
+    fs.writeFileSync(dbFile, original);
+    delete require.cache[require.resolve('../db')];
+  }
+});
