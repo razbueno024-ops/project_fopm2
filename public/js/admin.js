@@ -468,7 +468,19 @@ document.getElementById('logoutBtn').onclick = async () => {
   clearAdminSession();
   location.href = '/admin-login.html?force=1';
 };
-document.getElementById('userViewBtn').onclick = () => window.open('/index.html', '_blank', 'noopener');
+document.getElementById('userViewBtn').onclick = async () => {
+  const token = localStorage.getItem('adminToken');
+  const role = currentRole || 'admin';
+  const session = await apiGet('/api/admin/session').catch(() => null);
+  if (token && session && session.isAdmin) {
+    sessionStorage.setItem('adminViewMode', JSON.stringify({
+      token,
+      role: session.role || 'admin',
+      username: session.username || 'Admin'
+    }));
+  }
+  window.location.href = '/index.html';
+};
 document.getElementById('createBtn').onclick = renderCreateForm;
 document.getElementById('analyticsBtn').onclick = () => renderAnalytics().catch(error => toast(error.message, true));
 document.getElementById('usersBtn').onclick = () => renderUsers().catch(error => toast(error.message, true));

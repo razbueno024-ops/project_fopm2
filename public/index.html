@@ -9,7 +9,10 @@
 <body>
   <div class="topbar">
     <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> FOPM <span class="eyebrow" style="margin-left:8px">Feedback &amp; Concerns</span></div>
-    <a href="/admin-login.html" class="btn btn-ghost btn-sm">Admin</a>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div id="adminProfileDisplay" style="display:none; align-items:center; gap:8px; padding:0 12px; border-left:1px solid rgba(255,255,255,0.1);"></div>
+      <a href="/admin-login.html" class="btn btn-ghost btn-sm" id="adminBtn">Admin</a>
+    </div>
   </div>
 
   <div class="wrap">
@@ -117,6 +120,38 @@ async function renderFeedBody() {
   body.innerHTML = renderFeed(threads, tower.layout, { showChip: false, towerOf: () => tower });
 }
 
+function initializeAdminProfile() {
+  const adminView = sessionStorage.getItem('adminViewMode');
+  if (!adminView) return;
+  
+  try {
+    const { token, role, username } = JSON.parse(adminView);
+    const profileDisplay = document.getElementById('adminProfileDisplay');
+    
+    // Set admin token to api.js for authenticated requests
+    localStorage.setItem('adminToken', token);
+    
+    // Show profile indicator
+    const roleLabel = role === 'admin' ? 'Admin' : (role === 'staff' ? 'Staff' : 'Official');
+    profileDisplay.innerHTML = `
+      <div style=\"display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(79,167,230,0.15); border-radius:6px; border:1px solid rgba(79,167,230,0.4);\">
+        <span style=\"width:8px; height:8px; background:#4FA7E6; border-radius:50%;\"></span>
+        <span style=\"font-size:0.85rem; color:#4FA7E6; font-weight:500;\">${escapeHtml(roleLabel)}</span>
+      </div>
+    `;
+    profileDisplay.style.display = 'flex';
+    
+    // Update Admin button to go back to dashboard
+    const adminBtn = document.getElementById('adminBtn');
+    adminBtn.textContent = 'Back to dashboard';
+    adminBtn.href = '/admin.html';
+    adminBtn.style.color = '#4FA7E6';
+    
+  } catch (e) {
+    console.warn('Failed to parse admin view mode:', e);
+  }
+}
+
 async function load() {
   if (selectedId) {
     location.replace(`/tower.html?id=${encodeURIComponent(selectedId)}`);
@@ -127,6 +162,8 @@ async function load() {
   renderTabs();
   await renderFeedBody();
 }
+
+initializeAdminProfile();
 load().catch(e => toast(e.message, true));
 
 window.onpopstate = () => {
