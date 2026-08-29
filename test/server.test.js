@@ -104,6 +104,50 @@ test('exposes unread and new-verification metadata for the admin board', async (
   assert.ok(threads.every(thread => typeof thread.hasNewVerification === 'boolean'));
 });
 
+test('revokes an admin token when the user logs out', async () => {
+  const login = await fetch(`${baseUrl}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  });
+  const { token } = await login.json();
+  assert.ok(token, 'login should issue an admin token');
+
+  const logout = await fetch(`${baseUrl}/api/admin/logout`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(logout.status, 200, 'logout should succeed');
+
+  const session = await fetch(`${baseUrl}/api/admin/session`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(session.status, 200);
+  const payload = await session.json();
+  assert.equal(payload.isAdmin, false, 'revoked token should not keep admin access');
+});
+
+test('allows the admin to clear all notifications', async () => {
+  const login = await fetch(`${baseUrl}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  });
+  const { token } = await login.json();
+
+  const response = await fetch(`${baseUrl}/api/admin/notifications/clear`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(response.status, 200, 'notifications should clear successfully');
+
+  const list = await fetch(`${baseUrl}/api/admin/notifications`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  const items = await list.json();
+  assert.deepEqual(items, [], 'notification list should be empty after clearing');
+});
+
 test('blocks the retired resident reply bypass', async () => {
   const response = await fetch(`${baseUrl}/api/threads/kf4c2wknm2/reply`, { method: 'POST' });
   assert.equal(response.status, 410);

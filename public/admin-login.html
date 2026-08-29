@@ -44,8 +44,15 @@ function bindPasswordVisibility(root = document) {
   });
 }
 
+const forceLogin = new URLSearchParams(window.location.search).get('force') === '1';
+if (forceLogin) {
+  clearAdminSession();
+}
+
 bindPasswordVisibility();
-apiGet('/api/admin/session').then(s => { if (s.isAdmin) location.href = '/admin.html'; });
+if (!forceLogin) {
+  apiGet('/api/admin/session').then(s => { if (s.isAdmin) location.href = '/admin.html'; });
+}
 document.getElementById('form').onsubmit = async (e) => {
   e.preventDefault();
   const btn = document.getElementById('btn');

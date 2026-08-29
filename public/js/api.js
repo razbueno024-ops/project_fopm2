@@ -11,7 +11,10 @@ async function apiGet(url) {
   if (text) {
     try { data = JSON.parse(text); } catch { data = { error: text }; }
   }
-  if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status}).`);
+  if (!res.ok) {
+    if (res.status === 401) localStorage.removeItem('fopm-admin-token');
+    throw new Error(data.error || data.message || `Request failed (${res.status}).`);
+  }
   return data;
 }
 
@@ -31,7 +34,10 @@ async function apiSend(url, method, body, isForm) {
   if (text) {
     try { data = JSON.parse(text); } catch { data = { error: text }; }
   }
-  if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status}).`);
+  if (!res.ok) {
+    if (res.status === 401) localStorage.removeItem('fopm-admin-token');
+    throw new Error(data.error || data.message || `Request failed (${res.status}).`);
+  }
   if (url === '/api/admin/login' && data && data.token) {
     localStorage.setItem('fopm-admin-token', data.token);
   }
@@ -41,6 +47,11 @@ async function apiSend(url, method, body, isForm) {
 const apiPost = (url, body, isForm) => apiSend(url, 'POST', body, isForm);
 const apiPatch = (url, body) => apiSend(url, 'PATCH', body, false);
 const apiDelete = (url) => apiSend(url, 'DELETE', null, false);
+
+function clearAdminSession() {
+  localStorage.removeItem('fopm-admin-token');
+  document.cookie = 'connect.sid=; Max-Age=0; path=/; SameSite=Lax';
+}
 
 function toast(message, isError) {
   let el = document.getElementById('toast');

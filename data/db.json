@@ -362,6 +362,21 @@
           "action": "verification:submitted",
           "at": "2026-08-29T07:35:11.465Z",
           "by": "Anonymous resident"
+        },
+        {
+          "action": "verification:submitted",
+          "at": "2026-08-29T07:46:30.878Z",
+          "by": "Anonymous resident"
+        },
+        {
+          "action": "verification:submitted",
+          "at": "2026-08-29T07:47:01.715Z",
+          "by": "Anonymous resident"
+        },
+        {
+          "action": "verification:submitted",
+          "at": "2026-08-29T07:54:38.314Z",
+          "by": "Anonymous resident"
         }
       ],
       "messages": [
@@ -400,14 +415,14 @@
         "documentType": "Building ID",
         "idNumber": "ABC123",
         "mimeType": "application/pdf",
-        "fileName": "3720fc26-5b5f-473d-9abd-bf8a6989ef3c.pdf",
+        "fileName": "a180387b-726d-475c-ab4d-e3a79749945b.pdf",
         "dataUri": "data:application/pdf;base64,JVBERi0xLjQKJcOiw6PDj8OTCg==",
-        "submittedAt": "2026-08-29T07:35:11.465Z"
+        "submittedAt": "2026-08-29T07:54:38.314Z"
       },
       "pendingFeedback": {
         "text": "This is a new verification attempt while the concern is still open.",
         "attachment": null,
-        "submittedAt": "2026-08-29T07:35:11.465Z"
+        "submittedAt": "2026-08-29T07:54:38.314Z"
       }
     },
     {
@@ -492,222 +507,12 @@
   ],
   "notifications": [
     {
-      "id": "534516c3-ef95-4f85-8998-a051943d4027",
-      "type": "admin_reply",
-      "threadToken": "kweunv6ggd",
-      "residentUsername": null,
-      "towerId": 1,
-      "message": "The admin replied to your concern",
-      "createdAt": "2026-08-27T06:53:07.121Z",
-      "read": false
-    },
-    {
-      "id": "ea93b947-40c4-4c73-9d8f-22f2dad0b83b",
+      "id": "7f56536d-6716-4ffb-87cb-860d40288163",
       "type": "verification",
       "threadToken": "kf4c2wknm2",
       "towerId": 4,
       "message": "New identity verification requires review",
-      "createdAt": "2026-08-27T07:15:10.247Z",
-      "read": false
-    },
-    {
-      "id": "d8f7baba-3189-4074-b618-01044b8c1486",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-27T07:29:47.806Z",
-      "read": false
-    },
-    {
-      "id": "665168d3-0b55-4ecf-b9e9-388b84bf0333",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-27T07:32:41.905Z",
-      "read": false
-    },
-    {
-      "id": "8e99c1da-25c9-404d-8920-2b5693d9fcef",
-      "type": "admin_reply",
-      "threadToken": "kweunv6ggd",
-      "residentUsername": null,
-      "towerId": 1,
-      "message": "The admin replied to your concern",
-      "createdAt": "2026-08-27T08:16:12.246Z",
-      "read": false
-    },
-    {
-      "id": "17a79986-35a4-4d9a-a8a3-1e4c71821ee0",
-      "type": "admin_reply",
-      "threadToken": "kf4c2wknm2",
-      "residentUsername": null,
-      "towerId": 4,
-      "message": "The admin replied to your concern",
-      "createdAt": "2026-08-27T08:16:27.003Z",
-      "read": false
-    },
-    {
-      "id": "2a04a7ba-acba-4e26-b261-ec1a342fbff6",
-      "type": "verification",
-      "threadToken": "kweunv6ggd",
-      "towerId": 1,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-27T21:49:50.379Z",
-      "read": false
-    },
-    {
-      "id": "9d3af525-4495-49d5-8a03-7df51c317dae",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T04:35:35.205Z",
-      "read": false
-    },
-    {
-      "id": "642c4261-0cec-4e0c-9ed9-4882f9779d0d",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T04:58:12.567Z",
-      "read": false
-    },
-    {
-      "id": "0efc1977-b348-41a8-8281-08bd0e05741f",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T05:04:33.362Z",
-      "read": false
-    },
-    {
-      "id": "d386c15a-4baa-4448-baf5-c83f380212cc",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T05:14:12.866Z",
-      "read": false
-    },
-    {
-      "id": "f4cb006b-d4fd-40b4-af2e-1552322da362",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T05:15:06.994Z",
-      "read": false
-    },
-    {
-      "id": "b0831113-d9c1-4aeb-901e-056cc0e937f7",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T05:15:35.819Z",
-      "read": false
-    },
-    {
-      "id": "64188d26-ff71-4e09-81b4-558e96e23f6d",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T05:26:27.056Z",
-      "read": false
-    },
-    {
-      "id": "c3773488-b4dc-4fdf-aebd-0c1a95954768",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T05:56:29.718Z",
-      "read": false
-    },
-    {
-      "id": "1a86a6cf-0cac-4f14-b56c-6f3925a406bf",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T06:09:17.111Z",
-      "read": false
-    },
-    {
-      "id": "7a455076-c3bf-4417-8e2e-b5ad17d00238",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T06:11:51.583Z",
-      "read": false
-    },
-    {
-      "id": "705c4b6a-d8a4-4c29-b376-f37c153b706b",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T06:16:00.942Z",
-      "read": false
-    },
-    {
-      "id": "85b6c683-c7cc-48b9-8e77-297b40628626",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T06:16:12.920Z",
-      "read": false
-    },
-    {
-      "id": "c9aceb39-868b-4074-a93e-8b9bcb078130",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T06:25:05.121Z",
-      "read": false
-    },
-    {
-      "id": "b983c987-42e2-4563-9322-78acb13778f9",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T06:57:21.340Z",
-      "read": false
-    },
-    {
-      "id": "f0c959e0-d088-43f0-81b2-a3a7c18e42a2",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T07:03:23.172Z",
-      "read": false
-    },
-    {
-      "id": "ca387ad0-7383-4bce-a2e3-907b157197c8",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T07:15:07.469Z",
-      "read": false
-    },
-    {
-      "id": "500618d1-4704-41ad-86da-0b4ba2686ab9",
-      "type": "verification",
-      "threadToken": "kf4c2wknm2",
-      "towerId": 4,
-      "message": "New identity verification requires review",
-      "createdAt": "2026-08-29T07:35:11.465Z",
+      "createdAt": "2026-08-29T07:54:38.314Z",
       "read": false
     }
   ],

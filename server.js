@@ -12,6 +12,7 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'fopm-render-fallback-secret';
+const REVOKED_ADMIN_TOKENS = new Set();
 
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
   console.warn('SESSION_SECRET missing in production; using fallback secret for startup. Set it in Render so sessions stay stable.');
@@ -86,6 +87,7 @@ function createAdminToken(username, role) {
 
 function verifyAdminToken(token) {
   if (!token || typeof token !== 'string') return null;
+  if (REVOKED_ADMIN_TOKENS.has(token)) return null;
   const parts = token.split('.');
   if (parts.length !== 2) return null;
   const [payload, signature] = parts;
@@ -265,6 +267,11 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 app.post('/api/admin/logout', (req, res) => {
+  const token = req.headers['x-fopm-admin-token'];
+  if (token) REVOKED_ADMIN_TOKENS.add(token);
+  req.session.isAdmin = false;
+  req.session.username = null;
+  req.session.role = null;
   req.session.destroy(() => res.json({ ok: true }));
 });
 
@@ -614,6 +621,14 @@ app.get('/api/admin/export.csv', canManageUsers, (req, res) => {
 app.get('/api/admin/notifications', canModerate, (req, res) => {
   const state = ensureState(db.load());
   res.json(state.notifications.slice().reverse().slice(0, 50));
+});
+
+app.post('/api/admin/notifications/clear', canModerate, (req, res) => {
+  db.update(state => {
+    ensureState(state);
+    state.notifications = [];
+    return { ok: true };
+  }).then(() => res.json({ ok: true }));
 });
 
 app.post('/api/admin/maintenance', canModerate, (req, res) => {

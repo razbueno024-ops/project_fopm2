@@ -10,28 +10,8 @@ let lastNotificationId = null;
 let adminPollHandle = null;
 const statusLabels = { new: 'New', 'in-progress': 'In progress', resolved: 'Resolved', open: 'Open', satisfied: 'Resolved' };
 
-function playAlertTone(type = 'concern') {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtx) return;
-  try {
-    const ctx = new AudioCtx();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = type === 'verification' ? 'triangle' : 'sine';
-    oscillator.frequency.value = type === 'verification' ? 660 : 440;
-    gain.gain.value = 0.03;
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.18);
-    setTimeout(() => ctx.close(), 220);
-  } catch (error) {
-    // Ignore unsupported browser audio behavior.
-  }
-}
-
 function notifyNewActivity(message, type = 'concern') {
-  playAlertTone(type);
+  void type;
   toast(message, false);
 }
 
@@ -282,7 +262,7 @@ async function renderNotificationPanel() {
   bell.dataset.unread = unread;
   bell.classList.toggle('has-unread', unread > 0);
   panel.innerHTML = items.length ? items.slice(0, 8).map(item => `
-    <div class="notification-item ${item.read ? '' : 'unread'}">
+    <div class="notification-item ${item.read ? '' : 'unread'}" data-thread-token="${escapeHtml(item.threadToken || '')}" data-notification-type="${escapeHtml(item.type || 'concern')}" style="cursor:pointer;">
       <div class="notification-dot"></div>
       <div>
         <strong>${escapeHtml(item.message || 'Update')}</strong>
@@ -290,6 +270,20 @@ async function renderNotificationPanel() {
       </div>
     </div>
   `).join('') : '<div class="notification-empty">No recent updates.</div>';
+  panel.querySelectorAll('.notification-item').forEach(itemEl => {
+    itemEl.onclick = async () => {
+      const token = itemEl.dataset.threadToken;
+      if (!token) return;
+      const isVerification = itemEl.dataset.notificationType === 'verification';
+      if (isVerification) {
+        try { await apiGet(`/api/admin/threads/${token}/verification`); } catch (_) {}
+      }
+      await apiPost(`/api/admin/threads/${token}/read`).catch(() => {});
+      panel.classList.remove('open');
+      renderThreadDetail(token);
+      renderNotificationPanel();
+    };
+  });
 }
 
 async function renderThreadDetail(token) {
@@ -466,9 +460,15 @@ async function renderThreadDetail(token) {
 }
 
 document.getElementById('logoutBtn').onclick = async () => {
-  await apiPost('/api/admin/logout');
-  location.href = '/admin-login.html';
+  try {
+    await apiPost('/api/admin/logout');
+  } catch (error) {
+    // Ignore logout errors and force the session to end locally.
+  }
+  clearAdminSession();
+  location.href = '/admin-login.html?force=1';
 };
+document.getElementById('userViewBtn').onclick = () => window.open('/index.html', '_blank', 'noopener');
 document.getElementById('createBtn').onclick = renderCreateForm;
 document.getElementById('analyticsBtn').onclick = () => renderAnalytics().catch(error => toast(error.message, true));
 document.getElementById('usersBtn').onclick = () => renderUsers().catch(error => toast(error.message, true));
@@ -514,6 +514,21 @@ function startAdminPolling() {
           await renderNotificationPanel();
         }
       });
+      const clearButton = document.createElement('button');
+      clearButton.type = 'button';
+      clearButton.className = 'btn btn-ghost btn-sm';
+      clearButton.textContent = 'Clear all';
+      clearButton.style.marginTop = '10px';
+      clearButton.style.width = '100%';
+      clearButton.onclick = async () => {
+        await apiPost('/api/admin/notifications/clear');
+        lastNotificationCount = 0;
+        renderNotificationPanel();
+      };
+      if (!notificationPanel.querySelector('.notification-clear')) {
+        clearButton.classList.add('notification-clear');
+        notificationPanel.appendChild(clearButton);
+      }
     }
     document.addEventListener('click', (event) => {
       if (!event.target.closest('#notificationsBtn') && !event.target.closest('#notificationPanel')) {
