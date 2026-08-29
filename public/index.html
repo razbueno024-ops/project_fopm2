@@ -131,12 +131,17 @@ function initializeAdminProfile() {
     // Set admin token to api.js for authenticated requests
     localStorage.setItem('adminToken', token);
     
-    // Show profile indicator
+    // Show prominent circular profile badge
     const roleLabel = role === 'admin' ? 'Admin' : (role === 'staff' ? 'Staff' : 'Official');
+    const roleInitial = roleLabel[0].toUpperCase();
+    const bgColor = role === 'admin' ? '#4FA7E6' : (role === 'staff' ? '#50C878' : '#FFB84D');
+    
     profileDisplay.innerHTML = `
-      <div style=\"display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(79,167,230,0.15); border-radius:6px; border:1px solid rgba(79,167,230,0.4);\">
-        <span style=\"width:8px; height:8px; background:#4FA7E6; border-radius:50%;\"></span>
-        <span style=\"font-size:0.85rem; color:#4FA7E6; font-weight:500;\">${escapeHtml(roleLabel)}</span>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:0.85rem; color:#4FA7E6; font-weight:500; letter-spacing:0.5px;">${escapeHtml(roleLabel)}</span>
+        <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, ${bgColor}, ${bgColor}dd); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.9rem; border:2px solid ${bgColor}; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+          ${escapeHtml(roleInitial)}
+        </div>
       </div>
     `;
     profileDisplay.style.display = 'flex';
