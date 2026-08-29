@@ -11,8 +11,9 @@ let adminPollHandle = null;
 const statusLabels = { new: 'New', 'in-progress': 'In progress', resolved: 'Resolved', open: 'Open', satisfied: 'Resolved' };
 
 function notifyNewActivity(message, type = 'concern') {
-  void type;
-  toast(message, false);
+  const kind = (type || 'concern').toLowerCase();
+  const prefix = kind === 'verification' ? 'Verification update' : 'New concern update';
+  toast(`${prefix}: ${message}`, false);
 }
 
 function setSaveState(message, isError = false) {
@@ -90,17 +91,14 @@ async function renderThreadList() {
   const main = document.getElementById('main');
 
   if (!threads.length) {
-    main.innerHTML = `<div class="thread-header"><h2 style="font-size:1.3rem;">Concerns</h2><button class="btn btn-ghost btn-sm" id="clearFiltersBtn" type="button">Clear filters</button></div><div class="toolbar-box"><input class="admin-search" id="threadSearch" placeholder="Search by title, resident, staff, category, or location..." value="${escapeHtml(searchTerm)}"></div><div class="empty-state"><div class="glyph">📭</div>No concerns match this search or filter.</div>`;
+    main.innerHTML = `<div class="thread-header"><h2 style="font-size:1.3rem;">Concerns</h2></div><div class="toolbar-box"><input class="admin-search" id="threadSearch" placeholder="Search by title, resident, staff, category, or location..." value="${escapeHtml(searchTerm)}"></div><div class="empty-state"><div class="glyph">📭</div>No concerns match this search or filter.</div>`;
     wireThreadSearch();
-    const clearBtn = document.getElementById('clearFiltersBtn');
-    if (clearBtn) clearBtn.onclick = () => { searchTerm = ''; currentFilter.status = null; currentFilter.towerId = null; renderSidebar(); renderThreadList(); };
     return;
   }
 
   main.innerHTML = `
     <div class="thread-header">
       <h2 style="font-size:1.3rem;">Concerns</h2>
-      <button class="btn btn-ghost btn-sm" id="clearFiltersBtn" type="button">Clear filters</button>
     </div>
     <div class="toolbar-box">
       <input class="admin-search" id="threadSearch" placeholder="Search by title, resident, staff, category, or location..." value="${escapeHtml(searchTerm)}">
@@ -154,8 +152,6 @@ async function renderThreadList() {
       renderNotificationPanel();
     };
   });
-  const clearBtn = document.getElementById('clearFiltersBtn');
-  if (clearBtn) clearBtn.onclick = () => { searchTerm = ''; currentFilter.status = null; currentFilter.towerId = null; renderSidebar(); renderThreadList(); };
   wireThreadSearch();
 }
 
@@ -252,7 +248,7 @@ async function renderNotificationPanel() {
   if (!panel || !bell) return;
   const items = await apiGet('/api/admin/notifications').catch(() => []);
   const unread = items.filter(item => !item.read).length;
-  const latestItem = items[0];
+  const latestItem = items.find(item => !item.read) || items[0];
   if (typeof lastNotificationCount === 'number' && unread > lastNotificationCount) {
     const type = latestItem?.type === 'verification' ? 'verification' : 'concern';
     notifyNewActivity(latestItem?.message || 'New update received.', type);
@@ -262,21 +258,25 @@ async function renderNotificationPanel() {
   bell.dataset.unread = unread;
   bell.classList.toggle('has-unread', unread > 0);
   panel.innerHTML = items.length ? items.slice(0, 8).map(item => `
-    <div class="notification-item ${item.read ? '' : 'unread'}" data-thread-token="${escapeHtml(item.threadToken || '')}" data-notification-type="${escapeHtml(item.type || 'concern')}" style="cursor:pointer;">
-      <div class="notification-dot"></div>
-      <div>
+    <div class="notification-item ${item.read ? 'read' : 'unread'}" data-id="${escapeHtml(item.id || '')}" data-thread-token="${escapeHtml(item.threadToken || '')}" data-notification-type="${escapeHtml(item.type || 'concern')}" style="cursor:pointer;">
+      <div class="notification-dot" aria-hidden="true"></div>
+      <div style="flex:1; min-width:0;">
         <strong>${escapeHtml(item.message || 'Update')}</strong>
-        <div class="thread-meta">${timeAgo(item.createdAt)}</div>
+        <div class="thread-meta">${timeAgo(item.createdAt)}${item.read ? ' · read' : ' · unread'}</div>
       </div>
     </div>
   `).join('') : '<div class="notification-empty">No recent updates.</div>';
   panel.querySelectorAll('.notification-item').forEach(itemEl => {
     itemEl.onclick = async () => {
       const token = itemEl.dataset.threadToken;
+      const id = itemEl.dataset.id;
       if (!token) return;
       const isVerification = itemEl.dataset.notificationType === 'verification';
       if (isVerification) {
         try { await apiGet(`/api/admin/threads/${token}/verification`); } catch (_) {}
+      }
+      if (id) {
+        await apiPost(`/api/admin/notifications/${encodeURIComponent(id)}/read`).catch(() => {});
       }
       await apiPost(`/api/admin/threads/${token}/read`).catch(() => {});
       panel.classList.remove('open');

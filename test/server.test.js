@@ -127,7 +127,56 @@ test('revokes an admin token when the user logs out', async () => {
   assert.equal(payload.isAdmin, false, 'revoked token should not keep admin access');
 });
 
-test('allows the admin to clear all notifications', async () => {
+test('marks alert notifications as read and keeps the unread badge clear after reload', { concurrency: false }, async () => {
+  const login = await fetch(`${baseUrl}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  });
+  const { token } = await login.json();
+
+  const clear = await fetch(`${baseUrl}/api/admin/notifications/clear`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(clear.status, 200, 'notification list should be clearable before the regression test');
+
+  const form = new FormData();
+  form.append('fullName', 'Notification Read User');
+  form.append('documentType', 'Resident card');
+  form.append('idNumber', 'NR-1001');
+  form.append('message', 'This verification should create a notification for the admin panel.');
+  form.append('idDocument', new Blob(['%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n'], { type: 'application/pdf' }), 'notification-read.pdf');
+
+  const verification = await fetch(`${baseUrl}/api/threads/kf4c2wknm2/verification`, {
+    method: 'POST',
+    body: form
+  });
+  assert.equal(verification.status, 201, 'verification submission should create a notification');
+
+  const list = await fetch(`${baseUrl}/api/admin/notifications`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  const items = await list.json();
+  const notification = items.find(item => item.type === 'verification' && item.threadToken === 'kf4c2wknm2');
+  assert.ok(notification, 'verification should create an alert notification');
+
+  const readResponse = await fetch(`${baseUrl}/api/admin/notifications/${notification.id}/read`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(readResponse.status, 200, 'notification read endpoint should succeed');
+
+  const refreshed = await fetch(`${baseUrl}/api/admin/notifications`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  const updated = await refreshed.json();
+  const savedNotification = updated.find(item => item.id === notification.id);
+  assert.equal(savedNotification.read, true, 'notification should be persisted as read');
+  assert.equal(updated.filter(item => !item.read).length, 0, 'unread alert count should be zero after reading');
+});
+
+test('allows the admin to clear all notifications', { concurrency: false }, async () => {
   const login = await fetch(`${baseUrl}/api/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

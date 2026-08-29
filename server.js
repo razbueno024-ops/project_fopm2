@@ -620,7 +620,7 @@ app.get('/api/admin/export.csv', canManageUsers, (req, res) => {
 
 app.get('/api/admin/notifications', canModerate, (req, res) => {
   const state = ensureState(db.load());
-  res.json(state.notifications.slice().reverse().slice(0, 50));
+  res.json((state.notifications || []).slice().reverse().slice(0, 50));
 });
 
 app.post('/api/admin/notifications/clear', canModerate, (req, res) => {
@@ -629,6 +629,19 @@ app.post('/api/admin/notifications/clear', canModerate, (req, res) => {
     state.notifications = [];
     return { ok: true };
   }).then(() => res.json({ ok: true }));
+});
+
+app.post('/api/admin/notifications/:id/read', canModerate, (req, res) => {
+  db.update(state => {
+    ensureState(state);
+    const index = (state.notifications || []).findIndex(item => item.id === req.params.id);
+    if (index === -1) return { error: 'not_found' };
+    state.notifications[index].read = true;
+    return { ok: true };
+  }).then(result => {
+    if (result?.error) return res.status(404).json({ error: 'Notification not found.' });
+    res.json({ ok: true });
+  });
 });
 
 app.post('/api/admin/maintenance', canModerate, (req, res) => {
