@@ -147,9 +147,18 @@ function normalizePersistedMedia(state) {
 }
 
 function ensureState(state) {
-  state.adminUsers ||= [{ username: state.admin.username, role: 'admin', passwordHash: state.admin.passwordHash }];
+  const adminName = state.admin?.username || 'admin';
+  const adminHash = state.admin?.passwordHash || (Array.isArray(state.adminUsers) ? state.adminUsers.find(user => user.username === adminName)?.passwordHash : null) || '$2b$10$Xw5xfdkHpXp7mXYZtIdM2u3Sy49LP4hG2JcwMc4KIMx24YUmlIzTK';
+  const originalAdminHash = state.admin?.passwordHash;
+  const originalAdminUsers = JSON.stringify(state.adminUsers || []);
+
+  state.admin = { username: adminName, passwordHash: adminHash };
+  state.adminUsers = Array.isArray(state.adminUsers) ? state.adminUsers.filter(user => user.username !== adminName) : [];
+  state.adminUsers.unshift({ username: adminName, role: 'admin', passwordHash: adminHash });
+
   state.notifications ||= [];
   state.maintenance ||= [];
+  state.threads = Array.isArray(state.threads) ? state.threads : [];
   state.threads.forEach(thread => {
     thread.status = thread.status === 'satisfied' ? 'resolved' : (thread.status || 'new');
     thread.category ||= 'General';
@@ -158,8 +167,10 @@ function ensureState(state) {
     thread.assignedTo ||= null;
     thread.history ||= [{ action: 'created', at: thread.createdAt, by: thread.submitterName || 'System' }];
   });
-  if (normalizePersistedMedia(state)) {
-    try { db.save(state); } catch (err) { console.warn('Could not persist normalized media state:', err.message); }
+
+  const needsPersist = originalAdminHash !== adminHash || JSON.stringify(state.adminUsers) !== originalAdminUsers || normalizePersistedMedia(state);
+  if (needsPersist) {
+    try { db.save(state); } catch (err) { console.warn('Could not persist normalized state:', err.message); }
   }
   return state;
 }

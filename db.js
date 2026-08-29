@@ -7,7 +7,7 @@ const path = require('path');
 const { Pool } = require('pg');
 
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
-const DEFAULT_ADMIN_HASH = '$2b$10$T6IHje.EbU5EdOpRU78R2OrYuu8zfKFDRuwrk8gaEmZ2RepJRwRdy';
+const DEFAULT_ADMIN_HASH = '$2b$10$Xw5xfdkHpXp7mXYZtIdM2u3Sy49LP4hG2JcwMc4KIMx24YUmlIzTK';
 const DATABASE_URL = process.env.DATABASE_URL;
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
@@ -41,10 +41,21 @@ function ensureDbDirectory() {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+function normalizeAdminState(state) {
+  const base = makeDefaultState();
+  const adminName = state?.admin?.username || state?.adminUsers?.find(user => user.username === 'admin')?.username || 'admin';
+  const adminHash = state?.admin?.passwordHash || state?.adminUsers?.find(user => user.username === adminName)?.passwordHash || base.admin.passwordHash;
+  state.admin = { username: adminName, passwordHash: adminHash };
+  const sanitizedUsers = Array.isArray(state.adminUsers) ? state.adminUsers.filter(user => user.username !== adminName) : [];
+  sanitizedUsers.unshift({ username: adminName, role: 'admin', passwordHash: adminHash });
+  state.adminUsers = sanitizedUsers;
+  return state;
+}
+
 function mergeState(candidate) {
   const base = makeDefaultState();
   const parsed = candidate && typeof candidate === 'object' ? candidate : {};
-  return {
+  const merged = {
     ...base,
     ...parsed,
     admin: { ...base.admin, ...(parsed.admin || {}) },
@@ -55,6 +66,7 @@ function mergeState(candidate) {
     notifications: Array.isArray(parsed.notifications) ? parsed.notifications : base.notifications,
     maintenance: Array.isArray(parsed.maintenance) ? parsed.maintenance : base.maintenance
   };
+  return normalizeAdminState(merged);
 }
 
 function loadFromJson() {

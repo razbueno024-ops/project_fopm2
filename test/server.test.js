@@ -31,6 +31,29 @@ test('uses the documented default admin password', async () => {
   assert.equal(bcrypt.compareSync('admin123', state.admin.passwordHash), true);
 });
 
+test('repairs stale adminUsers hashes before login checks', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dbFile = path.join(__dirname, '..', 'data', 'db.json');
+  const original = fs.readFileSync(dbFile, 'utf8');
+
+  try {
+    const stale = JSON.parse(original);
+    stale.admin.passwordHash = stale.admin.passwordHash;
+    stale.adminUsers = [{ username: 'admin', role: 'admin', passwordHash: '$2b$10$wronghashINVALID0000000000000000000000000' }];
+    fs.writeFileSync(dbFile, JSON.stringify(stale, null, 2));
+    delete require.cache[require.resolve('../db')];
+
+    const { load } = require('../db');
+    const state = load();
+    assert.equal(state.adminUsers[0].username, 'admin');
+    assert.equal(state.adminUsers[0].passwordHash, state.admin.passwordHash);
+  } finally {
+    fs.writeFileSync(dbFile, original);
+    delete require.cache[require.resolve('../db')];
+  }
+});
+
 test('protects admin analytics and private documents', async () => {
   const analytics = await fetch(`${baseUrl}/api/admin/analytics`);
   const document = await fetch(`${baseUrl}/api/admin/threads/kf4c2wknm2/verification/document`);
