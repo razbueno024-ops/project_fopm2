@@ -18,7 +18,9 @@ let cache = null;
 let initialized = false;
 
 function makeDefaultState() {
+  const now = new Date().toISOString();
   return {
+    meta: { lastUpdatedAt: now },
     admin: { username: 'admin', passwordHash: DEFAULT_ADMIN_HASH },
     towers: [
       { id: 1, name: 'Tower 1', codename: 'Beacon', accent: '#E8A33D', tagline: 'North Wing', layout: 'cards' },
@@ -52,12 +54,48 @@ function normalizeAdminState(state) {
   return state;
 }
 
+function stateUpdatedAt(state) {
+  if (!state || typeof state !== 'object') return 0;
+  const candidates = [];
+  if (state.meta && state.meta.lastUpdatedAt) candidates.push(new Date(state.meta.lastUpdatedAt).getTime());
+  if (Array.isArray(state.threads)) {
+    state.threads.forEach(thread => {
+      if (thread && thread.updatedAt) candidates.push(new Date(thread.updatedAt).getTime());
+    });
+  }
+  if (Array.isArray(state.notifications)) {
+    state.notifications.forEach(item => {
+      if (item && item.createdAt) candidates.push(new Date(item.createdAt).getTime());
+    });
+  }
+  if (Array.isArray(state.maintenance)) {
+    state.maintenance.forEach(item => {
+      if (item && item.createdAt) candidates.push(new Date(item.createdAt).getTime());
+    });
+  }
+  return candidates.length ? Math.max(...candidates) : 0;
+}
+
+function stampLatestState(state) {
+  if (!state || typeof state !== 'object') return state;
+  state.meta = state.meta || {};
+  state.meta.lastUpdatedAt = new Date(stateUpdatedAt(state) || Date.now()).toISOString();
+  return state;
+}
+
+function chooseLatestState(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return stateUpdatedAt(a) >= stateUpdatedAt(b) ? a : b;
+}
+
 function mergeState(candidate) {
   const base = makeDefaultState();
   const parsed = candidate && typeof candidate === 'object' ? candidate : {};
   const merged = {
     ...base,
     ...parsed,
+    meta: { ...(base.meta || {}), ...(parsed.meta || {}) },
     admin: { ...base.admin, ...(parsed.admin || {}) },
     towers: Array.isArray(parsed.towers) && parsed.towers.length ? parsed.towers : base.towers,
     threads: Array.isArray(parsed.threads) ? parsed.threads : base.threads,
@@ -66,7 +104,7 @@ function mergeState(candidate) {
     notifications: Array.isArray(parsed.notifications) ? parsed.notifications : base.notifications,
     maintenance: Array.isArray(parsed.maintenance) ? parsed.maintenance : base.maintenance
   };
-  return normalizeAdminState(merged);
+  return stampLatestState(normalizeAdminState(merged));
 }
 
 function loadFromJson() {
@@ -102,7 +140,9 @@ function loadFromJson() {
 
 function saveToJson(state) {
   ensureDbDirectory();
-  fs.writeFileSync(DB_PATH, JSON.stringify(state, null, 2), 'utf-8');
+  if (!state || typeof state !== 'object') return;
+  const snapshot = stampLatestState(JSON.parse(JSON.stringify(state)));
+  fs.writeFileSync(DB_PATH, JSON.stringify(snapshot, null, 2), 'utf-8');
 }
 
 async function ensureDatabaseSchema() {
@@ -146,16 +186,19 @@ async function saveToDatabase(state) {
 async function initialize() {
   if (initialized) return cache;
 
+  let dbState = null;
+  let jsonState = null;
+
   if (DATABASE_URL && pool) {
     try {
-      cache = await loadFromDatabase();
+      dbState = await loadFromDatabase();
     } catch (error) {
       console.warn('Postgres init failed; falling back to JSON state.', error.message);
-      cache = loadFromJson();
     }
-  } else {
-    cache = loadFromJson();
   }
+
+  jsonState = loadFromJson();
+  cache = chooseLatestState(dbState, jsonState);
 
   initialized = true;
   return cache;
@@ -180,30 +223,34 @@ function load() {
   return cache;
 }
 
-function save(state) {
-  const current = state || cache || makeDefaultState();
+async function save(state) {
+  const current = stampLatestState(state || cache || makeDefaultState());
   cache = current;
 
+  // Always persist the JSON snapshot first so a restart can recover the latest
+  // state even if the database layer is slow, unavailable, or still warming up.
+  saveToJson(current);
+
   if (DATABASE_URL && pool) {
-    return safeDatabaseOperation(() => saveToDatabase(current), () => {
-      saveToJson(current);
-      return current;
-    });
+    try {
+      await saveToDatabase(current);
+    } catch (error) {
+      console.warn('Database sync failed; JSON snapshot remains authoritative.', error.message);
+    }
   }
 
-  saveToJson(current);
-  return Promise.resolve();
+  return current;
 }
 
 let queue = Promise.resolve();
 function update(mutator) {
   queue = queue.then(async () => {
-    let current = cache; 
+    let current = cache;
     try {
-      current = current || (await initialize());
+      current = chooseLatestState(current, await initialize());
     } catch (error) {
       console.warn('Initialize failed; using JSON fallback.', error.message);
-      current = loadFromJson();
+      current = chooseLatestState(current, loadFromJson());
     }
 
     const result = mutator(current);
