@@ -163,7 +163,9 @@ textarea{ resize: vertical; min-height: 100px; }
 .msg-author{ font-weight:600; font-size:.88rem; }
 .msg-time{ font-family: var(--font-mono); font-size:.72rem; color: var(--text-faint); }
 .msg-text{ color: var(--text); white-space: pre-wrap; }
-.msg-photo{ margin-top:10px; max-width: 320px; width:100%; border-radius:8px; border:1px solid var(--line); display:block; }
+.msg-photo{ margin-top:10px; max-width: 320px; width:100%; border-radius:8px; border:1px solid var(--line); display:block; cursor:pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.msg-photo:hover{ transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.msg-photo:active{ transform: scale(0.98); }
 
 .thread-status-bar{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
