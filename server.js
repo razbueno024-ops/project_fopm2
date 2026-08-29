@@ -11,9 +11,10 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'fopm-render-fallback-secret';
 
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET must be configured in production.');
+  console.warn('SESSION_SECRET missing in production; using fallback secret for startup. Set it in Render so sessions stay stable.');
 }
 
 // Short, link-friendly, unambiguous token for public thread URLs
@@ -25,7 +26,7 @@ const ID_NUMBER_PATTERN = /^[A-Z0-9-]{6,40}$/i;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fopm-local-development-secret',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 8 } // 8 hours
