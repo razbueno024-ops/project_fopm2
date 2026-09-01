@@ -1,7 +1,21 @@
 // api.js — small shared helpers used across every page.
 
+function getStoredAdminToken() {
+  return localStorage.getItem('fopm-admin-token') || localStorage.getItem('adminToken') || '';
+}
+
+function setStoredAdminToken(token) {
+  if (!token) {
+    localStorage.removeItem('fopm-admin-token');
+    localStorage.removeItem('adminToken');
+    return;
+  }
+  localStorage.setItem('fopm-admin-token', token);
+  localStorage.setItem('adminToken', token);
+}
+
 async function apiGet(url) {
-  const token = localStorage.getItem('fopm-admin-token');
+  const token = getStoredAdminToken();
   const res = await fetch(url, {
     credentials: 'same-origin',
     headers: token ? { 'X-FOPM-Admin-Token': token } : {}
@@ -19,7 +33,7 @@ async function apiGet(url) {
 }
 
 async function apiSend(url, method, body, isForm) {
-  const token = localStorage.getItem('fopm-admin-token');
+  const token = getStoredAdminToken();
   const opts = { method, headers: {}, credentials: 'same-origin' };
   if (token) opts.headers['X-FOPM-Admin-Token'] = token;
   if (isForm) {
@@ -39,7 +53,7 @@ async function apiSend(url, method, body, isForm) {
     throw new Error(data.error || data.message || `Request failed (${res.status}).`);
   }
   if (url === '/api/admin/login' && data && data.token) {
-    localStorage.setItem('fopm-admin-token', data.token);
+    setStoredAdminToken(data.token);
   }
   return data;
 }
@@ -49,7 +63,7 @@ const apiPatch = (url, body) => apiSend(url, 'PATCH', body, false);
 const apiDelete = (url) => apiSend(url, 'DELETE', null, false);
 
 function clearAdminSession() {
-  localStorage.removeItem('fopm-admin-token');
+  setStoredAdminToken(null);
   document.cookie = 'connect.sid=; Max-Age=0; path=/; SameSite=Lax';
 }
 

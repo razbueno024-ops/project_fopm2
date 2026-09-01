@@ -128,8 +128,9 @@ function initializeAdminProfile() {
     const { token, role, username } = JSON.parse(adminView);
     const profileDisplay = document.getElementById('adminProfileDisplay');
     
-    // Set admin token to api.js for authenticated requests
+    // Keep the current admin session alive while viewing the public UI.
     localStorage.setItem('adminToken', token);
+    localStorage.setItem('fopm-admin-token', token);
     
     // Show prominent circular profile badge
     const roleLabel = role === 'admin' ? 'Admin' : (role === 'staff' ? 'Staff' : 'Official');

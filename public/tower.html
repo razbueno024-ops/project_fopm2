@@ -45,6 +45,7 @@ function initializeAdminProfile() {
     const profileDisplay = document.getElementById('adminProfileDisplay');
     
     localStorage.setItem('adminToken', token);
+    localStorage.setItem('fopm-admin-token', token);
     
     const roleLabel = role === 'admin' ? 'Admin' : (role === 'staff' ? 'Staff' : 'Official');
     const roleInitial = roleLabel[0].toUpperCase();
