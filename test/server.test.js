@@ -264,6 +264,48 @@ test('allows the admin to clear all notifications', { concurrency: false }, asyn
   assert.deepEqual(items, [], 'notification list should be empty after clearing');
 });
 
+test('shows deleted concerns in the admin deleted filter so they can be recovered', async () => {
+  const login = await fetch(`${baseUrl}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  });
+  const { token } = await login.json();
+
+  const createResponse = await fetch(`${baseUrl}/api/admin/towers/1/threads`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token },
+    body: new URLSearchParams({
+      title: 'Recover me test concern',
+      message: 'This concern should appear in the deleted view and be recoverable.',
+      category: 'General',
+      urgency: 'normal',
+      location: 'Deleted filter test'
+    })
+  });
+  assert.equal(createResponse.status, 201, 'admin should create a concern for deletion testing');
+  const created = await createResponse.json();
+
+  const deleteResponse = await fetch(`${baseUrl}/api/admin/threads/${created.token}`, {
+    method: 'DELETE',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(deleteResponse.status, 200, 'soft-deleted concerns should be deletable');
+
+  const deletedList = await fetch(`${baseUrl}/api/admin/threads?status=deleted`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(deletedList.status, 200, 'deleted filter endpoint should be available');
+  const deletedThreads = await deletedList.json();
+  assert.ok(deletedThreads.some(thread => thread.token === created.token), 'deleted concern should appear in the deleted filter');
+
+  const recoverResponse = await fetch(`${baseUrl}/api/admin/threads/${created.token}/recover`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(recoverResponse.status, 200, 'recover endpoint should restore the deleted concern');
+});
+
 test('blocks the retired resident reply bypass', async () => {
   const response = await fetch(`${baseUrl}/api/threads/kf4c2wknm2/reply`, { method: 'POST' });
   assert.equal(response.status, 410);

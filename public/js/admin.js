@@ -64,6 +64,7 @@ async function renderSidebar() {
     <div class="sidebar-item ${currentFilter.status === 'new' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="new"><span>New</span></div>
     <div class="sidebar-item ${currentFilter.status === 'in-progress' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="in-progress"><span>In progress</span></div>
     <div class="sidebar-item ${currentFilter.status === 'resolved' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="resolved"><span>Resolved</span></div>
+    <div class="sidebar-item ${currentFilter.status === 'deleted' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="deleted"><span>Deleted</span></div>
   `;
   sidebar.querySelectorAll('.sidebar-item').forEach(el => {
     el.onclick = () => {
@@ -108,6 +109,7 @@ async function renderThreadList() {
         const tower = towersCache.find(tw => tw.id === t.towerId) || {};
         const unreadCount = Number(t.unreadCount || 0);
         const isNewVerification = !!t.hasNewVerification;
+        const isDeleted = !!t.deleted;
         return `
         <div class="thread-row fade-in ${isNewVerification ? 'thread-row--alert' : ''}" style="--tower-accent:${tower.accent || '#4C7EA8'}" data-token="${t.token}">
           <div class="thread-row-main">
@@ -125,8 +127,8 @@ async function renderThreadList() {
             </div>
           </div>
           <div class="thread-row-actions">
-            <span class="badge ${t.status==='resolved'?'badge-satisfied':'badge-open'}"><span class="badge-dot"></span>${statusLabels[t.status] || 'New'}</span>
-            <button class="thread-read-toggle" type="button" data-token="${t.token}" data-unread="${t.adminUnread ? 'true' : 'false'}">${t.adminUnread ? 'Mark read' : 'Mark unread'}</button>
+            <span class="badge ${isDeleted ? 'badge-alert' : (t.status==='resolved'?'badge-satisfied':'badge-open')}"><span class="badge-dot"></span>${isDeleted ? 'Deleted' : (statusLabels[t.status] || 'New')}</span>
+            ${isDeleted ? `<button class="thread-read-toggle" type="button" data-token="${t.token}" data-action="recover">Recover</button>` : `<button class="thread-read-toggle" type="button" data-token="${t.token}" data-unread="${t.adminUnread ? 'true' : 'false'}">${t.adminUnread ? 'Mark read' : 'Mark unread'}</button>`}
           </div>
         </div>`;
       }).join('')}
@@ -144,6 +146,14 @@ async function renderThreadList() {
     btn.onclick = async (event) => {
       event.stopPropagation();
       const token = btn.dataset.token;
+      if (btn.dataset.action === 'recover') {
+        await apiPost(`/api/admin/threads/${token}/recover`);
+        setSaveState('Thread recovered');
+        renderSidebar();
+        renderThreadList();
+        renderNotificationPanel();
+        return;
+      }
       const unread = btn.dataset.unread === 'true';
       await apiPost(`/api/admin/threads/${token}/${unread ? 'read' : 'unread'}`);
       setSaveState(unread ? 'Marked read' : 'Marked unread');
