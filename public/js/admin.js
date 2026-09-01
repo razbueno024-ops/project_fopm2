@@ -487,19 +487,29 @@ async function logoutAdmin() {
 document.getElementById('createBtn').onclick = renderCreateForm;
 
 async function handleUserView() {
-  const token = getStoredAdminToken();
-  const role = currentRole || 'admin';
-  const session = await apiGet('/api/admin/session').catch(() => null);
-  if (token && session && session.isAdmin) {
-    sessionStorage.setItem('adminViewMode', JSON.stringify({
-      token,
-      role: session.role || role,
-      username: session.username || 'Admin'
-    }));
-    localStorage.setItem('adminToken', token);
-    localStorage.setItem('fopm-admin-token', token);
+  try {
+    const token = getStoredAdminToken();
+    if (!token) {
+      toast('No admin token found. Please log in again.', true);
+      return;
+    }
+    const role = currentRole || 'admin';
+    const session = await apiGet('/api/admin/session').catch(() => null);
+    if (token && session && session.isAdmin) {
+      sessionStorage.setItem('adminViewMode', JSON.stringify({
+        token,
+        role: session.role || role,
+        username: session.username || 'Admin'
+      }));
+      localStorage.setItem('adminToken', token);
+      localStorage.setItem('fopm-admin-token', token);
+      window.location.href = '/index.html';
+    } else {
+      toast('Session verification failed. Try logging in again.', true);
+    }
+  } catch (error) {
+    toast(error.message || 'User view failed', true);
   }
-  window.location.href = '/index.html';
 }
 
 document.querySelectorAll('[data-action]').forEach(button => {
