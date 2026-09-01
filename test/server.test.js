@@ -23,11 +23,11 @@ test('serves the main application pages', async () => {
   }
 });
 
-test('keeps the settings menu free of user-view and password actions', async () => {
+test('keeps the user-view action in the header and out of the settings menu', async () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
-  assert.doesNotMatch(html, /id="userViewBtn"/i, 'admin dashboard should not expose a user-view trigger');
+  assert.match(html, /id="userViewBtn"/i, 'admin dashboard header must expose a user-view trigger');
   assert.doesNotMatch(html, /data-action="user-view"/i, 'admin dropdown should not include the public user-view action');
   assert.doesNotMatch(html, /data-action="password"/i, 'admin dropdown should not include the password action');
 });

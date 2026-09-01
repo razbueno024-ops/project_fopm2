@@ -492,6 +492,21 @@ async function logoutAdmin() {
 
 document.getElementById('logoutBtn')?.addEventListener('click', logoutAdmin);
 
+document.getElementById('userViewBtn')?.addEventListener('click', async () => {
+  const token = getStoredAdminToken();
+  const role = currentRole || 'admin';
+  const session = await apiGet('/api/admin/session').catch(() => null);
+  if (token && session && session.isAdmin) {
+    sessionStorage.setItem('adminViewMode', JSON.stringify({
+      token,
+      role: session.role || role,
+      username: session.username || 'Admin'
+    }));
+    localStorage.setItem('adminToken', token);
+    localStorage.setItem('fopm-admin-token', token);
+  }
+  window.location.href = '/index.html';
+});
 document.getElementById('createBtn').onclick = renderCreateForm;
 
 function closeHeaderPopovers(except = null) {
