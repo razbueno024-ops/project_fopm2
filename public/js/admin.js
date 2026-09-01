@@ -503,16 +503,69 @@ document.getElementById('userViewBtn')?.addEventListener('click', async () => {
 });
 document.getElementById('createBtn').onclick = renderCreateForm;
 
+function closeHeaderPopovers(except = null) {
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsDropdown = document.getElementById('settingsDropdown');
+  const notificationsBtn = document.getElementById('notificationsBtn');
+  const notificationPanel = document.getElementById('notificationPanel');
+
+  if (settingsDropdown && except !== 'settings') {
+    settingsDropdown.setAttribute('hidden', 'hidden');
+    settingsBtn?.setAttribute('aria-expanded', 'false');
+  }
+  if (notificationPanel && except !== 'notifications') {
+    notificationPanel.classList.remove('open');
+    notificationsBtn?.setAttribute('aria-expanded', 'false');
+  }
+}
+
 document.getElementById('settingsBtn').onclick = () => {
   const dropdown = document.getElementById('settingsDropdown');
   if (!dropdown) return;
-  const isHidden = dropdown.hasAttribute('hidden');
-  if (isHidden) {
+  const shouldOpen = dropdown.hasAttribute('hidden');
+  closeHeaderPopovers('settings');
+  if (shouldOpen) {
     dropdown.removeAttribute('hidden');
+    document.getElementById('settingsBtn')?.setAttribute('aria-expanded', 'true');
   } else {
     dropdown.setAttribute('hidden', 'hidden');
+    document.getElementById('settingsBtn')?.setAttribute('aria-expanded', 'false');
   }
 };
+
+document.getElementById('notificationsBtn').onclick = async () => {
+  const panel = document.getElementById('notificationPanel');
+  const btn = document.getElementById('notificationsBtn');
+  if (!panel || !btn) return;
+  const shouldOpen = !panel.classList.contains('open');
+  closeHeaderPopovers('notifications');
+  if (shouldOpen) {
+    panel.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+    await renderNotificationPanel();
+  } else {
+    panel.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+};
+
+document.addEventListener('click', (event) => {
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsDropdown = document.getElementById('settingsDropdown');
+  const notificationBtn = document.getElementById('notificationsBtn');
+  const notificationPanel = document.getElementById('notificationPanel');
+  if (!settingsBtn || !settingsDropdown || !notificationBtn || !notificationPanel) return;
+  const clickedSettings = event.target.closest('#settingsBtn') || event.target.closest('#settingsDropdown');
+  const clickedNotifications = event.target.closest('#notificationsBtn') || event.target.closest('#notificationPanel');
+  if (!clickedSettings) {
+    settingsDropdown.setAttribute('hidden', 'hidden');
+    settingsBtn.setAttribute('aria-expanded', 'false');
+  }
+  if (!clickedNotifications) {
+    notificationPanel.classList.remove('open');
+    notificationBtn.setAttribute('aria-expanded', 'false');
+  }
+});
 
 document.querySelectorAll('[data-action]').forEach(button => {
   button.addEventListener('click', async () => {
@@ -562,12 +615,7 @@ function startAdminPolling() {
     const notificationsBtn = document.getElementById('notificationsBtn');
     const notificationPanel = document.getElementById('notificationPanel');
     if (notificationsBtn) {
-      notificationsBtn.addEventListener('click', async () => {
-        notificationPanel.classList.toggle('open');
-        if (notificationPanel.classList.contains('open')) {
-          await renderNotificationPanel();
-        }
-      });
+      notificationsBtn.setAttribute('aria-expanded', 'false');
       const clearButton = document.createElement('button');
       clearButton.type = 'button';
       clearButton.className = 'btn btn-ghost btn-sm';
