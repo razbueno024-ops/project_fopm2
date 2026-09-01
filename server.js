@@ -352,7 +352,7 @@ app.post('/api/admin/change-password', canManageUsers, (req, res) => {
 app.get('/api/towers', (req, res) => {
   const state = ensureState(db.load());
   const towers = state.towers.map(t => {
-    const threads = state.threads.filter(th => th.towerId === t.id && th.status !== 'resolved' && th.status !== 'satisfied');
+    const threads = state.threads.filter(th => th.towerId === t.id && !th.deleted && th.status !== 'resolved' && th.status !== 'satisfied');
     return {
       ...t,
       totalThreads: threads.length,
@@ -384,7 +384,7 @@ app.get('/api/towers/:id/threads', (req, res) => {
   const state = ensureState(db.load());
   if (!state.towers.some(t => t.id === towerId)) return res.status(404).json({ error: 'Tower not found.' });
   const threads = state.threads
-    .filter(t => t.towerId === towerId && t.status !== 'resolved' && t.status !== 'satisfied')
+    .filter(t => t.towerId === towerId && !t.deleted && t.status !== 'resolved' && t.status !== 'satisfied')
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
     .map(t => ({
       token: t.token,
@@ -571,7 +571,7 @@ app.get('/api/admin/threads', requireAdmin, (req, res) => {
   const state = ensureState(db.load());
   const towerId = req.query.towerId ? Number(req.query.towerId) : null;
   const status = req.query.status || null;
-  let threads = state.threads;
+  let threads = state.threads.filter(t => !t.deleted);
   if (!status) {
     threads = threads.filter(t => t.status !== 'resolved' && t.status !== 'satisfied');
   }
@@ -643,6 +643,19 @@ app.get('/api/admin/export.csv', canManageUsers, (req, res) => {
 app.get('/api/admin/notifications', canModerate, (req, res) => {
   const state = ensureState(db.load());
   res.json((state.notifications || []).slice().reverse().slice(0, 50));
+});
+
+app.delete('/api/admin/notifications/:id', canModerate, (req, res) => {
+  db.update(state => {
+    ensureState(state);
+    const index = (state.notifications || []).findIndex(item => item.id === req.params.id);
+    if (index === -1) return { error: 'not_found' };
+    state.notifications.splice(index, 1);
+    return { ok: true };
+  }).then(result => {
+    if (result?.error) return res.status(404).json({ error: 'Notification not found.' });
+    res.json({ ok: true });
+  });
 });
 
 app.post('/api/admin/notifications/clear', canModerate, (req, res) => {
@@ -838,10 +851,29 @@ app.post('/api/admin/threads/:token/reopen', canModerate, (req, res) => {
     ensureState(d);
     const thread = d.threads.find(t => t.token === req.params.token);
     if (!thread) return { error: 'not_found' };
+    thread.deleted = false;
+    thread.deletedAt = null;
     thread.status = 'in-progress';
     thread.closedAt = null;
     thread.updatedAt = new Date().toISOString();
     thread.history.push({ action: 'status:in-progress', at: thread.updatedAt, by: req.session.username });
+    return { ok: true };
+  }).then(result => {
+    if (result?.error) return res.status(404).json({ error: 'Not found.' });
+    res.json({ ok: true });
+  });
+});
+
+app.post('/api/admin/threads/:token/recover', canModerate, (req, res) => {
+  db.update(d => {
+    ensureState(d);
+    const thread = d.threads.find(t => t.token === req.params.token);
+    if (!thread) return { error: 'not_found' };
+    thread.deleted = false;
+    thread.deletedAt = null;
+    thread.status = thread.status === 'resolved' ? 'in-progress' : thread.status || 'in-progress';
+    thread.updatedAt = new Date().toISOString();
+    thread.history.push({ action: 'status:recovered', at: thread.updatedAt, by: req.session.username || 'Admin' });
     return { ok: true };
   }).then(result => {
     if (result?.error) return res.status(404).json({ error: 'Not found.' });
@@ -867,19 +899,16 @@ app.patch('/api/admin/threads/:token/messages/:messageId', canModerate, (req, re
   });
 });
 
-// Delete an entire thread — admin only.
+// Delete an entire thread — admin only. Soft-delete so it can be recovered later.
 app.delete('/api/admin/threads/:token', canManageUsers, (req, res) => {
   db.update(d => {
-    const idx = d.threads.findIndex(t => t.token === req.params.token);
-    if (idx === -1) return { error: 'not_found' };
-    const [removed] = d.threads.splice(idx, 1);
-    // best-effort cleanup of attached photos
-    removed.messages.forEach(m => {
-      if (m.attachment && !isDataUri(m.attachment)) {
-        const p = path.join(__dirname, m.attachment.replace(/^\//, ''));
-        fs.unlink(p, () => {});
-      }
-    });
+    const thread = d.threads.find(t => t.token === req.params.token);
+    if (!thread) return { error: 'not_found' };
+    thread.deleted = true;
+    thread.deletedAt = new Date().toISOString();
+    thread.updatedAt = thread.deletedAt;
+    thread.history = thread.history || [];
+    thread.history.push({ action: 'status:deleted', at: thread.deletedAt, by: req.session.username || 'Admin' });
     return { ok: true };
   }).then(result => {
     if (result?.error) return res.status(404).json({ error: 'Not found.' });

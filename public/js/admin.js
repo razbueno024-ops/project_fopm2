@@ -279,14 +279,17 @@ async function renderNotificationPanel() {
         <strong>${escapeHtml(item.message || 'Update')}</strong>
         <div class="thread-meta">${timeAgo(item.createdAt)}${item.read ? ' · read' : ' · unread'}</div>
       </div>
+      <button class="btn btn-ghost btn-sm notification-delete-btn" type="button" data-notification-id="${escapeHtml(item.id || '')}" aria-label="Delete this alert">Delete</button>
     </div>
   `).join('') : '<div class="notification-empty">No recent updates.</div>';
   panel.querySelectorAll('.notification-item').forEach(itemEl => {
-    itemEl.onclick = async () => {
-      const token = itemEl.dataset.threadToken;
-      const id = itemEl.dataset.id;
+    const trigger = itemEl;
+    trigger.onclick = async (event) => {
+      if (event.target.closest('.notification-delete-btn')) return;
+      const token = trigger.dataset.threadToken;
+      const id = trigger.dataset.id;
       if (!token) return;
-      const isVerification = itemEl.dataset.notificationType === 'verification';
+      const isVerification = trigger.dataset.notificationType === 'verification';
       if (isVerification) {
         try { await apiGet(`/api/admin/threads/${token}/verification`); } catch (_) {}
       }
@@ -296,6 +299,15 @@ async function renderNotificationPanel() {
       await apiPost(`/api/admin/threads/${token}/read`).catch(() => {});
       panel.classList.remove('open');
       renderThreadDetail(token);
+      renderNotificationPanel();
+    };
+  });
+  panel.querySelectorAll('.notification-delete-btn').forEach(button => {
+    button.onclick = async (event) => {
+      event.stopPropagation();
+      const id = button.dataset.notificationId;
+      if (!id) return;
+      await apiDelete(`/api/admin/notifications/${encodeURIComponent(id)}`);
       renderNotificationPanel();
     };
   });
@@ -318,10 +330,8 @@ async function renderThreadDetail(token) {
       <span class="badge ${thread.status==='resolved'?'badge-satisfied':'badge-open'}"><span class="badge-dot"></span>${statusLabels[thread.status] || 'New'}</span>
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <button class="btn btn-sm ${thread.adminUnread ? 'btn-ghost' : 'btn-primary'}" id="toggleReadStateBtn">${thread.adminUnread ? 'Mark as read' : 'Mark as unread'}</button>
-        ${thread.status !== 'resolved'
-          ? `<button class="btn btn-sm" id="closeBtn">Mark satisfied &amp; close</button>`
-          : `<button class="btn btn-sm" id="reopenBtn">Reopen thread</button>`}
-        <button class="btn btn-sm btn-danger" id="deleteBtn">Delete thread</button>
+        ${thread.deleted ? `<button class="btn btn-sm btn-primary" id="recoverBtn">Recover thread</button>` : (thread.status !== 'resolved' ? `<button class="btn btn-sm" id="closeBtn">Mark satisfied &amp; close</button>` : `<button class="btn btn-sm" id="reopenBtn">Reopen thread</button>`)}
+        <button class="btn btn-sm btn-danger" id="deleteBtn">${thread.deleted ? 'Delete permanently' : 'Delete thread'}</button>
       </div>
     </div>
     <div class="card thread-controls">
@@ -438,10 +448,24 @@ async function renderThreadDetail(token) {
     renderThreadList();
     toast('Thread reopened.');
   };
+  const recoverBtn = document.getElementById('recoverBtn');
+  if (recoverBtn) recoverBtn.onclick = async () => {
+    await apiPost(`/api/admin/threads/${token}/recover`);
+    toast('Thread recovered.');
+    renderThreadDetail(token);
+  };
   document.getElementById('deleteBtn').onclick = async () => {
-    if (!confirm('Permanently delete this thread and its photos? This cannot be undone.')) return;
+    if (thread.deleted) {
+      if (!confirm('Permanently delete this thread? This cannot be undone.')) return;
+      await apiDelete(`/api/admin/threads/${token}`);
+      toast('Thread deleted permanently.');
+      renderThreadList();
+      renderSidebar();
+      return;
+    }
+    if (!confirm('Soft delete this thread so it can be recovered later?')) return;
     await apiDelete(`/api/admin/threads/${token}`);
-    toast('Thread deleted.');
+    toast('Thread moved to deleted state.');
     renderThreadList();
     renderSidebar();
   };
