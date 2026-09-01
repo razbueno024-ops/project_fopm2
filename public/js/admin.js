@@ -505,11 +505,17 @@ async function handleUserView() {
 document.querySelectorAll('[data-action]').forEach(button => {
   button.addEventListener('click', async () => {
     const action = button.dataset.action;
-    if (action === 'analytics') return renderAnalytics().catch(error => toast(error.message, true));
-    if (action === 'user-view') return handleUserView();
-    if (action === 'export') return window.location.href = '/api/admin/export.csv';
-    if (action === 'users') return renderUsers().catch(error => toast(error.message, true));
-    if (action === 'logout') return logoutAdmin();
+    if (action === 'analytics') {
+      try { await renderAnalytics(); } catch (error) { toast(error.message, true); }
+    } else if (action === 'user-view') {
+      handleUserView();
+    } else if (action === 'export') {
+      window.location.href = '/api/admin/export.csv';
+    } else if (action === 'users') {
+      try { await renderUsers(); } catch (error) { toast(error.message, true); }
+    } else if (action === 'logout') {
+      logoutAdmin();
+    }
   });
 });
 
