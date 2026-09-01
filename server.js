@@ -350,13 +350,13 @@ app.post('/api/admin/change-password', canManageUsers, (req, res) => {
 
 // ================= TOWERS (public) =================
 app.get('/api/towers', (req, res) => {
-  const state = db.load();
+  const state = ensureState(db.load());
   const towers = state.towers.map(t => {
-    const threads = state.threads.filter(th => th.towerId === t.id);
+    const threads = state.threads.filter(th => th.towerId === t.id && th.status !== 'resolved' && th.status !== 'satisfied');
     return {
       ...t,
       totalThreads: threads.length,
-      openThreads: threads.filter(th => th.status !== 'resolved' && th.status !== 'satisfied').length
+      openThreads: threads.length
     };
   });
   res.json(towers);
@@ -384,7 +384,7 @@ app.get('/api/towers/:id/threads', (req, res) => {
   const state = ensureState(db.load());
   if (!state.towers.some(t => t.id === towerId)) return res.status(404).json({ error: 'Tower not found.' });
   const threads = state.threads
-    .filter(t => t.towerId === towerId)
+    .filter(t => t.towerId === towerId && t.status !== 'resolved' && t.status !== 'satisfied')
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
     .map(t => ({
       token: t.token,

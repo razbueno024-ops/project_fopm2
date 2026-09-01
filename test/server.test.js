@@ -23,12 +23,35 @@ test('serves the main application pages', async () => {
   }
 });
 
-test('provides the user-view entry point from the admin dashboard', async () => {
+test('keeps the settings menu free of user-view and password actions', async () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
-  assert.match(html, /id="userViewBtn"/i, 'admin dashboard must expose a user-view trigger');
-  assert.match(html, /data-action="user-view"/i, 'admin dropdown must include the public user-view action');
+  assert.doesNotMatch(html, /id="userViewBtn"/i, 'admin dashboard should not expose a user-view trigger');
+  assert.doesNotMatch(html, /data-action="user-view"/i, 'admin dropdown should not include the public user-view action');
+  assert.doesNotMatch(html, /data-action="password"/i, 'admin dropdown should not include the password action');
+});
+
+test('excludes resolved concerns from tower and public feed APIs', async () => {
+  const login = await fetch(`${baseUrl}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  });
+  const { token } = await login.json();
+
+  const towerResponse = await fetch(`${baseUrl}/api/towers/1/threads`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(towerResponse.status, 200);
+  const threads = await towerResponse.json();
+  assert.ok(Array.isArray(threads));
+  assert.ok(threads.every(thread => thread.status !== 'resolved' && thread.status !== 'satisfied'));
+
+  const allTowersResponse = await fetch(`${baseUrl}/api/towers`);
+  assert.equal(allTowersResponse.status, 200);
+  const towers = await allTowersResponse.json();
+  assert.ok(towers.every(tower => tower.openThreads >= 0));
 });
 
 test('uses the documented default admin password', async () => {

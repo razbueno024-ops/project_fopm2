@@ -486,21 +486,6 @@ async function logoutAdmin() {
 
 document.getElementById('logoutBtn')?.addEventListener('click', logoutAdmin);
 
-document.getElementById('userViewBtn')?.addEventListener('click', async () => {
-  const token = getStoredAdminToken();
-  const role = currentRole || 'admin';
-  const session = await apiGet('/api/admin/session').catch(() => null);
-  if (token && session && session.isAdmin) {
-    sessionStorage.setItem('adminViewMode', JSON.stringify({
-      token,
-      role: session.role || role,
-      username: session.username || 'Admin'
-    }));
-    localStorage.setItem('adminToken', token);
-    localStorage.setItem('fopm-admin-token', token);
-  }
-  window.location.href = '/index.html';
-});
 document.getElementById('createBtn').onclick = renderCreateForm;
 
 function closeHeaderPopovers(except = null) {
@@ -573,29 +558,11 @@ document.querySelectorAll('[data-action]').forEach(button => {
     const dropdown = document.getElementById('settingsDropdown');
     if (dropdown) dropdown.setAttribute('hidden', 'hidden');
     if (action === 'analytics') return renderAnalytics().catch(error => toast(error.message, true));
-    if (action === 'user-view') return document.getElementById('userViewBtn')?.click();
     if (action === 'export') return window.location.href = '/api/admin/export.csv';
     if (action === 'users') return renderUsers().catch(error => toast(error.message, true));
-    if (action === 'password') return settingsPanel.style.display = 'flex';
     if (action === 'logout') return logoutAdmin();
   });
 });
-
-const settingsPanel = document.getElementById('settingsPanel');
-document.getElementById('closeSettings').onclick = () => settingsPanel.style.display = 'none';
-bindPasswordVisibility();
-document.getElementById('pwForm').onsubmit = async (e) => {
-  e.preventDefault();
-  try {
-    await apiPost('/api/admin/change-password', {
-      currentPassword: document.getElementById('curPw').value,
-      newPassword: document.getElementById('newPw').value
-    });
-    toast('Password updated.');
-    settingsPanel.style.display = 'none';
-    e.target.reset();
-  } catch (err) { toast(err.message, true); }
-};
 
 function startAdminPolling() {
   if (adminPollHandle) return;
