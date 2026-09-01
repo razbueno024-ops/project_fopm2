@@ -63,6 +63,7 @@ async function renderSidebar() {
     <div class="sidebar-section-title">Filter</div>
     <div class="sidebar-item ${currentFilter.status === 'new' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="new"><span>New</span></div>
     <div class="sidebar-item ${currentFilter.status === 'in-progress' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="in-progress"><span>In progress</span></div>
+    <div class="sidebar-item ${currentFilter.status === 'resolved' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="resolved"><span>Resolved</span></div>
   `;
   sidebar.querySelectorAll('.sidebar-item').forEach(el => {
     el.onclick = () => {
@@ -422,14 +423,20 @@ async function renderThreadDetail(token) {
   if (closeBtn) closeBtn.onclick = async () => {
     if (!confirm('Mark this thread as satisfied and close it?')) return;
     await apiPost(`/api/admin/threads/${token}/close`);
-    toast('Thread closed as satisfied.');
-    renderThreadDetail(token);
+    currentFilter.status = 'resolved';
+    currentFilter.towerId = null;
+    renderSidebar();
+    renderThreadList();
+    toast('Thread moved to resolved.');
   };
   const reopenBtn = document.getElementById('reopenBtn');
   if (reopenBtn) reopenBtn.onclick = async () => {
     await apiPost(`/api/admin/threads/${token}/reopen`);
+    currentFilter.status = null;
+    currentFilter.towerId = null;
+    renderSidebar();
+    renderThreadList();
     toast('Thread reopened.');
-    renderThreadDetail(token);
   };
   document.getElementById('deleteBtn').onclick = async () => {
     if (!confirm('Permanently delete this thread and its photos? This cannot be undone.')) return;

@@ -571,7 +571,10 @@ app.get('/api/admin/threads', requireAdmin, (req, res) => {
   const state = ensureState(db.load());
   const towerId = req.query.towerId ? Number(req.query.towerId) : null;
   const status = req.query.status || null;
-  let threads = state.threads.filter(t => t.status !== 'resolved' && t.status !== 'satisfied');
+  let threads = state.threads;
+  if (!status) {
+    threads = threads.filter(t => t.status !== 'resolved' && t.status !== 'satisfied');
+  }
   if (towerId) threads = threads.filter(t => t.towerId === towerId);
   if (status) threads = threads.filter(t => t.status === status);
   threads = threads.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(thread => ({

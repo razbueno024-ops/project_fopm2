@@ -48,12 +48,41 @@ test('excludes resolved concerns from tower and public feed APIs', async () => {
   assert.ok(Array.isArray(threads));
   assert.ok(threads.every(thread => thread.status !== 'resolved' && thread.status !== 'satisfied'));
 
+  const createResponse = await fetch(`${baseUrl}/api/admin/towers/1/threads`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token },
+    body: new URLSearchParams({
+      title: 'Temporary resolved regression test',
+      message: 'This thread should be filtered into the resolved bucket only.',
+      category: 'General',
+      urgency: 'normal',
+      location: 'Regression test lane'
+    })
+  });
+  assert.equal(createResponse.status, 201, 'admin should be able to create a test concern');
+  const created = await createResponse.json();
+  assert.ok(created.token, 'created thread should have a token');
+
+  const closeResponse = await fetch(`${baseUrl}/api/admin/threads/${created.token}/close`, {
+    method: 'POST',
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(closeResponse.status, 200, 'admin should be able to close a concern');
+
   const adminList = await fetch(`${baseUrl}/api/admin/threads`, {
     headers: { 'X-FOPM-Admin-Token': token }
   });
   assert.equal(adminList.status, 200);
   const adminThreads = await adminList.json();
   assert.ok(adminThreads.every(thread => thread.status !== 'resolved'));
+
+  const resolvedList = await fetch(`${baseUrl}/api/admin/threads?status=resolved`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(resolvedList.status, 200);
+  const resolvedThreads = await resolvedList.json();
+  assert.ok(Array.isArray(resolvedThreads));
+  assert.ok(resolvedThreads.some(thread => thread.token === created.token && thread.status === 'resolved'));
 
   const allTowersResponse = await fetch(`${baseUrl}/api/towers`);
   assert.equal(allTowersResponse.status, 200);
