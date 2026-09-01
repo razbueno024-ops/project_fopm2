@@ -337,14 +337,18 @@ app.get('/api/admin/users', canManageUsers, (req, res) => {
 
 app.post('/api/admin/change-password', canManageUsers, (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
-  const state = db.load();
-  if (!bcrypt.compareSync(currentPassword || '', state.admin.passwordHash)) {
-    return res.status(400).json({ error: 'Current password is incorrect.' });
+  if (!currentPassword || String(currentPassword).trim().length === 0) {
+    return res.status(400).json({ error: 'Current password is required.' });
   }
-  if (!newPassword || newPassword.length < 6) {
+  if (!newPassword || String(newPassword).trim().length < 6) {
     return res.status(400).json({ error: 'New password must be at least 6 characters.' });
   }
-  db.update(d => { d.admin.passwordHash = bcrypt.hashSync(newPassword, 10); });
+  const state = ensureState(db.load());
+  if (!state.admin || !bcrypt.compareSync(String(currentPassword).trim(), state.admin.passwordHash || '')) {
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+  state.admin.passwordHash = bcrypt.hashSync(String(newPassword).trim(), 10);
+  db.save(state);
   res.json({ ok: true });
 });
 

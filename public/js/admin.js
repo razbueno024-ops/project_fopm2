@@ -484,9 +484,9 @@ async function logoutAdmin() {
   location.href = '/admin-login.html?force=1';
 }
 
-document.getElementById('logoutBtn')?.addEventListener('click', logoutAdmin);
+document.getElementById('createBtn').onclick = renderCreateForm;
 
-document.getElementById('userViewBtn')?.addEventListener('click', async () => {
+async function handleUserView() {
   const token = getStoredAdminToken();
   const role = currentRole || 'admin';
   const session = await apiGet('/api/admin/session').catch(() => null);
@@ -500,44 +500,30 @@ document.getElementById('userViewBtn')?.addEventListener('click', async () => {
     localStorage.setItem('fopm-admin-token', token);
   }
   window.location.href = '/index.html';
-});
-document.getElementById('createBtn').onclick = renderCreateForm;
-
-document.getElementById('settingsBtn').onclick = () => {
-  const dropdown = document.getElementById('settingsDropdown');
-  if (!dropdown) return;
-  const isHidden = dropdown.hasAttribute('hidden');
-  if (isHidden) {
-    dropdown.removeAttribute('hidden');
-  } else {
-    dropdown.setAttribute('hidden', 'hidden');
-  }
-};
+}
 
 document.querySelectorAll('[data-action]').forEach(button => {
   button.addEventListener('click', async () => {
     const action = button.dataset.action;
-    const dropdown = document.getElementById('settingsDropdown');
-    if (dropdown) dropdown.setAttribute('hidden', 'hidden');
     if (action === 'analytics') return renderAnalytics().catch(error => toast(error.message, true));
-    if (action === 'user-view') return document.getElementById('userViewBtn')?.click();
+    if (action === 'user-view') return handleUserView();
     if (action === 'export') return window.location.href = '/api/admin/export.csv';
     if (action === 'users') return renderUsers().catch(error => toast(error.message, true));
-    if (action === 'password') return settingsPanel.style.display = 'flex';
     if (action === 'logout') return logoutAdmin();
   });
 });
 
 const settingsPanel = document.getElementById('settingsPanel');
-document.getElementById('closeSettings').onclick = () => settingsPanel.style.display = 'none';
-bindPasswordVisibility();
-document.getElementById('pwForm').onsubmit = async (e) => {
-  e.preventDefault();
-  try {
-    await apiPost('/api/admin/change-password', {
-      currentPassword: document.getElementById('curPw').value,
-      newPassword: document.getElementById('newPw').value
-    });
+if (settingsPanel && document.getElementById('closeSettings')) {
+  document.getElementById('closeSettings').onclick = () => settingsPanel.style.display = 'none';
+  bindPasswordVisibility();
+  document.getElementById('pwForm').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await apiPost('/api/admin/change-password', {
+        currentPassword: document.getElementById('curPw').value,
+        newPassword: document.getElementById('newPw').value
+      });
     toast('Password updated.');
     settingsPanel.style.display = 'none';
     e.target.reset();

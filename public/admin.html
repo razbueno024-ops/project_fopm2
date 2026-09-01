@@ -11,17 +11,6 @@
     <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> FOPM Admin</div>
     <div style="display:flex; gap:10px; align-items:center;">
       <button class="btn btn-primary btn-sm" id="createBtn">New concern</button>
-      <div class="settings-menu">
-        <button class="btn btn-ghost btn-sm settings-toggle" id="settingsBtn" type="button" aria-label="Open settings">⚙</button>
-        <div class="settings-dropdown" id="settingsDropdown" hidden>
-          <button class="dropdown-item" type="button" data-action="analytics">Analytics</button>
-          <button class="dropdown-item" type="button" data-action="user-view">User view</button>
-          <button class="dropdown-item" type="button" data-action="export">Export CSV</button>
-          <button class="dropdown-item" type="button" data-action="users">Admin users</button>
-          <button class="dropdown-item" type="button" data-action="password">Change password</button>
-          <button class="dropdown-item dropdown-item-danger" type="button" data-action="logout">Log out</button>
-        </div>
-      </div>
       <div class="notification-wrap">
         <button class="btn btn-ghost btn-sm" id="notificationsBtn" aria-label="Notifications">Alerts</button>
         <div id="notificationPanel" class="notification-panel"></div>
@@ -33,6 +22,13 @@
     <div class="admin-sidebar" id="sidebar"></div>
     <div class="admin-main" id="main">
       <div class="empty-state"><div class="glyph">📋</div>Select a tower or thread from the left to get started.</div>
+    </div>
+    <div class="admin-settings-sidebar">
+      <button class="settings-sidebar-item" type="button" data-action="analytics">Analytics</button>
+      <button class="settings-sidebar-item" type="button" data-action="user-view">User view</button>
+      <button class="settings-sidebar-item" type="button" data-action="export">Export CSV</button>
+      <button class="settings-sidebar-item" type="button" data-action="users">Admin users</button>
+      <button class="settings-sidebar-item settings-sidebar-danger" type="button" data-action="logout">Log out</button>
     </div>
   </div>
 
