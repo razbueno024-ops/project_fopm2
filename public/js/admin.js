@@ -564,12 +564,6 @@ function startAdminPolling() {
     const notificationsBtn = document.getElementById('notificationsBtn');
     const notificationPanel = document.getElementById('notificationPanel');
     if (notificationsBtn) {
-      notificationsBtn.addEventListener('click', async () => {
-        notificationPanel.classList.toggle('open');
-        if (notificationPanel.classList.contains('open')) {
-          await renderNotificationPanel();
-        }
-      });
       const clearButton = document.createElement('button');
       clearButton.type = 'button';
       clearButton.className = 'btn btn-ghost btn-sm';
@@ -586,11 +580,6 @@ function startAdminPolling() {
         notificationPanel.appendChild(clearButton);
       }
     }
-    document.addEventListener('click', (event) => {
-      if (!event.target.closest('#notificationsBtn') && !event.target.closest('#notificationPanel')) {
-        notificationPanel?.classList.remove('open');
-      }
-    });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         renderSidebar().catch(() => {});
