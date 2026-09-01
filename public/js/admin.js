@@ -205,8 +205,23 @@ async function renderAnalytics() {
 
 async function renderUsers() {
   const users = await apiGet('/api/admin/users');
-  document.getElementById('main').innerHTML = `<div class="eyebrow">Access control</div><h2>Admin users</h2><div class="card"><div class="thread-list">${users.map(user => `<div class="analytics-row" style="display:flex; justify-content:space-between; gap:12px; align-items:center;"><div><span>${escapeHtml(user.username)}</span><strong style="margin-left:10px;">${escapeHtml(user.role)}</strong></div><button class="btn btn-danger btn-sm" data-delete-user="${escapeHtml(user.username)}" type="button">Terminate</button></div>`).join('')}</div><form id="userForm" style="margin-top:20px;"><div class="field"><label>Username</label><input id="newUsername" required></div><div class="field"><label>Password</label><div class="password-row"><input id="newUserPassword" type="password" minlength="6" required><button type="button" class="btn btn-ghost btn-sm password-toggle" data-target-id="newUserPassword">Show</button></div></div><div class="field"><label>Role</label><select id="newUserRole"><option value="staff">staff</option><option value="official">official</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn btn-primary" type="submit">Add admin user</button></form></div>`;
+  document.getElementById('main').innerHTML = `<div class="eyebrow">Access control</div><h2>Admin users</h2><div class="card"><div class="thread-list">${users.map(user => `<div class="analytics-row" style="display:flex; justify-content:space-between; gap:12px; align-items:center;"><div><span>${escapeHtml(user.username)}</span><strong style="margin-left:10px;">${escapeHtml(user.role)}</strong></div><div style="display:flex; gap:8px; flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-edit-password-user="${escapeHtml(user.username)}" type="button">Change password</button><button class="btn btn-danger btn-sm" data-delete-user="${escapeHtml(user.username)}" type="button">Terminate</button></div></div>`).join('')}</div><form id="userForm" style="margin-top:20px;"><div class="field"><label>Username</label><input id="newUsername" required></div><div class="field"><label>Password</label><div class="password-row"><input id="newUserPassword" type="password" minlength="6" required><button type="button" class="btn btn-ghost btn-sm password-toggle" data-target-id="newUserPassword">Show</button></div></div><div class="field"><label>Role</label><select id="newUserRole"><option value="staff">staff</option><option value="official">official</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn btn-primary" type="submit">Add admin user</button></form></div>`;
   bindPasswordVisibility();
+  document.querySelectorAll('[data-edit-password-user]').forEach(button => {
+    button.onclick = async () => {
+      const username = button.dataset.editPasswordUser;
+      const newPassword = prompt(`Set a new password for ${username}:`, '');
+      if (newPassword === null) return;
+      const trimmed = newPassword.trim();
+      if (!trimmed || trimmed.length < 6) {
+        toast('Password must be at least 6 characters.', true);
+        return;
+      }
+      await apiPost(`/api/admin/users/${encodeURIComponent(username)}/password`, { newPassword: trimmed });
+      toast(`Password updated for ${username}.`);
+      renderUsers();
+    };
+  });
   document.querySelectorAll('[data-delete-user]').forEach(button => {
     button.onclick = async () => {
       const username = button.dataset.deleteUser;
@@ -459,7 +474,7 @@ async function renderThreadDetail(token) {
   };
 }
 
-document.getElementById('logoutBtn').onclick = async () => {
+async function logoutAdmin() {
   try {
     await apiPost('/api/admin/logout');
   } catch (error) {
@@ -467,8 +482,11 @@ document.getElementById('logoutBtn').onclick = async () => {
   }
   clearAdminSession();
   location.href = '/admin-login.html?force=1';
-};
-document.getElementById('userViewBtn').onclick = async () => {
+}
+
+document.getElementById('logoutBtn')?.addEventListener('click', logoutAdmin);
+
+document.getElementById('userViewBtn')?.addEventListener('click', async () => {
   const token = getStoredAdminToken();
   const role = currentRole || 'admin';
   const session = await apiGet('/api/admin/session').catch(() => null);
@@ -482,13 +500,35 @@ document.getElementById('userViewBtn').onclick = async () => {
     localStorage.setItem('fopm-admin-token', token);
   }
   window.location.href = '/index.html';
-};
+});
 document.getElementById('createBtn').onclick = renderCreateForm;
-document.getElementById('analyticsBtn').onclick = () => renderAnalytics().catch(error => toast(error.message, true));
-document.getElementById('usersBtn').onclick = () => renderUsers().catch(error => toast(error.message, true));
+
+document.getElementById('settingsBtn').onclick = () => {
+  const dropdown = document.getElementById('settingsDropdown');
+  if (!dropdown) return;
+  const isHidden = dropdown.hasAttribute('hidden');
+  if (isHidden) {
+    dropdown.removeAttribute('hidden');
+  } else {
+    dropdown.setAttribute('hidden', 'hidden');
+  }
+};
+
+document.querySelectorAll('[data-action]').forEach(button => {
+  button.addEventListener('click', async () => {
+    const action = button.dataset.action;
+    const dropdown = document.getElementById('settingsDropdown');
+    if (dropdown) dropdown.setAttribute('hidden', 'hidden');
+    if (action === 'analytics') return renderAnalytics().catch(error => toast(error.message, true));
+    if (action === 'user-view') return document.getElementById('userViewBtn')?.click();
+    if (action === 'export') return window.location.href = '/api/admin/export.csv';
+    if (action === 'users') return renderUsers().catch(error => toast(error.message, true));
+    if (action === 'password') return settingsPanel.style.display = 'flex';
+    if (action === 'logout') return logoutAdmin();
+  });
+});
 
 const settingsPanel = document.getElementById('settingsPanel');
-document.getElementById('settingsBtn').onclick = () => settingsPanel.style.display = 'flex';
 document.getElementById('closeSettings').onclick = () => settingsPanel.style.display = 'none';
 bindPasswordVisibility();
 document.getElementById('pwForm').onsubmit = async (e) => {

@@ -90,6 +90,20 @@ p{ margin: 0 0 1em; color: var(--text-dim); }
 .btn-sm{ padding: 10px 14px; font-size: .9rem; min-height: 40px; }
 
 .notification-wrap{ position:relative; }
+.settings-menu{ position:relative; }
+.settings-toggle{ width:42px; min-width:42px; display:grid; place-items:center; font-size:1.15rem; }
+.settings-dropdown{
+  position:absolute; right:0; top:calc(100% + 10px); min-width: 190px;
+  background: var(--bg-card); border:1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 30px rgba(0,0,0,.25);
+  padding: 8px; display:flex; flex-direction:column; gap:6px; z-index:40;
+}
+.settings-dropdown[hidden]{ display:none; }
+.dropdown-item{
+  border:1px solid transparent; background: rgba(255,255,255,.02); color: var(--text); padding: 10px 12px; border-radius: 8px;
+  text-align:left; font: inherit; cursor:pointer; transition: background .12s ease, border-color .12s ease, transform .12s ease;
+}
+.dropdown-item:hover{ background: rgba(75,147,197,0.1); border-color: var(--line); transform: translateX(2px); }
+.dropdown-item-danger{ color: #ffb4b4; }
 .notification-panel{
   position:absolute; right:0; top:calc(100% + 10px); width: 300px; max-height: 340px; overflow:auto;
   background: var(--bg-card); border:1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,.24);

@@ -296,6 +296,25 @@ app.post('/api/admin/users', requireAdminRole('admin'), (req, res) => {
   }).then(result => result?.error ? res.status(409).json({ error: 'That admin username already exists.' }) : res.status(201).json({ ok: true }));
 });
 
+app.post('/api/admin/users/:username/password', requireAdminRole('admin'), (req, res) => {
+  const username = decodeURIComponent(req.params.username || '');
+  const { newPassword } = req.body || {};
+  if (!username || !newPassword || String(newPassword).trim().length < 6) {
+    return res.status(400).json({ error: 'A new password of at least 6 characters is required.' });
+  }
+  const state = ensureState(db.load());
+  const target = state.adminUsers.find(user => user.username === username);
+  if (!target) {
+    return res.status(404).json({ error: 'No matching admin user was found.' });
+  }
+  target.passwordHash = bcrypt.hashSync(String(newPassword).trim(), 10);
+  if (state.admin && state.admin.username === username) {
+    state.admin.passwordHash = target.passwordHash;
+  }
+  db.save(state);
+  res.json({ ok: true, username });
+});
+
 app.delete('/api/admin/users/:username', requireAdminRole('admin'), (req, res) => {
   const username = decodeURIComponent(req.params.username || '');
   if (!username) return res.status(400).json({ error: 'No username was provided.' });
