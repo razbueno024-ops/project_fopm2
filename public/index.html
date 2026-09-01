@@ -72,14 +72,18 @@ function renderSkyline() {
 function renderTabs() {
   const el = document.getElementById('towerTabs');
   el.innerHTML = `
-    <a class="tower-tab ${!selectedId ? 'active' : ''}" href="/index.html">
+    <button type="button" class="tower-tab ${!selectedId ? 'active' : ''}" data-id="" aria-label="Show all towers">
       <span class="dot"></span> All towers
-    </a>
+    </button>
     ${towers.map(t => `
-      <a class="tower-tab ${String(selectedId)===String(t.id)?'active':''}" style="--tab-accent:${t.accent}" href="/tower.html?id=${t.id}">
+      <button type="button" class="tower-tab ${String(selectedId)===String(t.id)?'active':''}" style="--tab-accent:${t.accent}" data-id="${t.id}" aria-label="Filter by ${t.name}">
         <span class="dot"></span> ${t.name}
-      </a>`).join('')}
+      </button>`).join('')}
   `;
+
+  el.querySelectorAll('.tower-tab').forEach(button => {
+    button.addEventListener('click', () => selectTower(button.dataset.id || null));
+  });
 }
 
 async function selectTower(id) {
@@ -159,10 +163,6 @@ function initializeAdminProfile() {
 }
 
 async function load() {
-  if (selectedId) {
-    location.replace(`/tower.html?id=${encodeURIComponent(selectedId)}`);
-    return;
-  }
   towers = await apiGet('/api/towers');
   renderSkyline();
   renderTabs();
