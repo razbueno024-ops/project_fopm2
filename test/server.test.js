@@ -23,6 +23,14 @@ test('serves the main application pages', async () => {
   }
 });
 
+test('provides the user-view entry point from the admin dashboard', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
+  assert.match(html, /id="userViewBtn"/i, 'admin dashboard must expose a user-view trigger');
+  assert.match(html, /data-action="user-view"/i, 'admin dropdown must include the public user-view action');
+});
+
 test('uses the documented default admin password', async () => {
   const { load } = require('../db');
   const state = load();
