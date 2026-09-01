@@ -48,6 +48,13 @@ test('excludes resolved concerns from tower and public feed APIs', async () => {
   assert.ok(Array.isArray(threads));
   assert.ok(threads.every(thread => thread.status !== 'resolved' && thread.status !== 'satisfied'));
 
+  const adminList = await fetch(`${baseUrl}/api/admin/threads`, {
+    headers: { 'X-FOPM-Admin-Token': token }
+  });
+  assert.equal(adminList.status, 200);
+  const adminThreads = await adminList.json();
+  assert.ok(adminThreads.every(thread => thread.status !== 'resolved'));
+
   const allTowersResponse = await fetch(`${baseUrl}/api/towers`);
   assert.equal(allTowersResponse.status, 200);
   const towers = await allTowersResponse.json();

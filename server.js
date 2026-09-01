@@ -364,13 +364,13 @@ app.get('/api/towers', (req, res) => {
 
 // Admin-only view with unread counts, used for the notification badges.
 app.get('/api/admin/towers', requireAdmin, (req, res) => {
-  const state = db.load();
+  const state = ensureState(db.load());
   const towers = state.towers.map(t => {
-    const threads = state.threads.filter(th => th.towerId === t.id);
+    const threads = state.threads.filter(th => th.towerId === t.id && th.status !== 'resolved' && th.status !== 'satisfied');
     return {
       ...t,
       totalThreads: threads.length,
-      openThreads: threads.filter(th => th.status !== 'resolved' && th.status !== 'satisfied').length,
+      openThreads: threads.length,
       unread: threads.filter(th => th.adminUnread).length
     };
   });
@@ -571,7 +571,7 @@ app.get('/api/admin/threads', requireAdmin, (req, res) => {
   const state = ensureState(db.load());
   const towerId = req.query.towerId ? Number(req.query.towerId) : null;
   const status = req.query.status || null;
-  let threads = state.threads;
+  let threads = state.threads.filter(t => t.status !== 'resolved' && t.status !== 'satisfied');
   if (towerId) threads = threads.filter(t => t.towerId === towerId);
   if (status) threads = threads.filter(t => t.status === status);
   threads = threads.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(thread => ({

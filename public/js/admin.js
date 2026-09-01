@@ -63,7 +63,6 @@ async function renderSidebar() {
     <div class="sidebar-section-title">Filter</div>
     <div class="sidebar-item ${currentFilter.status === 'new' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="new"><span>New</span></div>
     <div class="sidebar-item ${currentFilter.status === 'in-progress' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="in-progress"><span>In progress</span></div>
-    <div class="sidebar-item ${currentFilter.status === 'resolved' ? 'active' : ''}" data-tower="${currentFilter.towerId || ''}" data-status="resolved"><span>Resolved</span></div>
   `;
   sidebar.querySelectorAll('.sidebar-item').forEach(el => {
     el.onclick = () => {
