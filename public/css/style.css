@@ -16,14 +16,37 @@
   --text: #E7ECF2;
   --text-dim: #8FA0B5;
   --text-faint: #5C6E85;
-  --accent: #4b93c5; /* default / neutral accent, overridden per tower */
+  --accent: #4b93c5;
   --accent-soft: rgba(75,147,197,0.16);
   --danger: #D64545;
   --good: #4FBE7E;
-  --radius: 10px;
+  --header-bg: linear-gradient(90deg, #07558a 0%, #0d6c63 52%, #07833f 100%);
+  --page-glow: rgba(51,121,184,.34);
+  --page-glow-2: rgba(21,148,71,.24);
+  --panel-glass: rgba(9,24,35,.82);
+  --radius: 12px;
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'IBM Plex Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
+}
+
+:root[data-theme='light'] {
+  --bg: #edf4f8;
+  --bg-raised: #f7fbff;
+  --bg-card: #ffffff;
+  --line: #d6e3ee;
+  --line-soft: #eaf0f6;
+  --text: #142635;
+  --text-dim: #45607a;
+  --text-faint: #6d7f92;
+  --accent: #2d7bc0;
+  --accent-soft: rgba(45,123,192,0.12);
+  --danger: #d94f4f;
+  --good: #2aa36d;
+  --header-bg: linear-gradient(90deg, #dfeffc 0%, #d7f4ee 52%, #dbf3dc 100%);
+  --page-glow: rgba(45,123,192,.18);
+  --page-glow-2: rgba(42,163,109,.12);
+  --panel-glass: rgba(255,255,255,.88);
 }
 
 *{ box-sizing: border-box; }
@@ -32,14 +55,20 @@ body{
   margin:0;
   background: var(--bg);
   background-image:
-    radial-gradient(circle at 50% -15%, rgba(51,121,184,.34), transparent 42%),
-    radial-gradient(circle at 8% 82%, rgba(21,148,71,.24), transparent 34%),
-    linear-gradient(128deg, #071827 0%, #0b2438 48%, #09291f 100%);
+    radial-gradient(circle at 50% -15%, var(--page-glow), transparent 42%),
+    radial-gradient(circle at 8% 82%, var(--page-glow-2), transparent 34%),
+    linear-gradient(128deg, var(--bg) 0%, #0b2438 48%, #09291f 100%);
   color: var(--text);
   font-family: var(--font-body);
-  line-height: 1.7;
+  line-height: 1.6;
   min-height: 100vh;
-  font-size: 17px;
+  font-size: 16px;
+}
+:root[data-theme='light'] body{
+  background-image:
+    radial-gradient(circle at 50% -15%, rgba(45,123,192,.12), transparent 32%),
+    radial-gradient(circle at 8% 82%, rgba(42,163,109,.1), transparent 28%),
+    linear-gradient(128deg, #edf6fb 0%, #eaf9f3 48%, #edf5ee 100%);
 }
 body::after{
   content:'';
@@ -61,21 +90,29 @@ p{ margin: 0 0 1em; color: var(--text-dim); }
 .wrap{ max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
 .topbar{
   display:flex; align-items:center; justify-content:space-between;
-  gap:18px; padding: 12px 18px; min-height: 62px; border-bottom: 1px solid var(--line);
-  background: linear-gradient(90deg, #07558a 0%, #0d6c63 52%, #07833f 100%);
+  gap:18px; padding: 10px 18px; min-height: 62px; border-bottom: 1px solid rgba(255,255,255,.12);
+  background: var(--header-bg);
   box-shadow: 0 2px 0 rgba(255,255,255,.12);
   position: sticky; top:0; z-index: 30;
 }
-.brand{ display:flex; align-items:center; gap:10px; font-family: var(--font-display); font-weight:700; font-size: 1.02rem; }
+:root[data-theme='light'] .topbar{ box-shadow: 0 2px 16px rgba(14,53,77,.08); }
+.brand{ display:flex; align-items:center; gap:10px; font-family: var(--font-display); font-weight:700; font-size: 1rem; color: #f6fbff; }
 .brand-logo{ width:28px; height:28px; object-fit:contain; border-radius:4px; background:#fff; padding:2px; }
 .brand .flag{ width:10px; height:14px; background: var(--accent); clip-path: polygon(0 0,100% 15%,100% 85%,0 100%); }
 .eyebrow{ font-family: var(--font-mono); font-size:.72rem; text-transform:uppercase; letter-spacing:.14em; color: var(--text-faint); }
 
 .topbar-actions{
-  display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:nowrap;
+  display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:nowrap;
   margin-left:auto;
 }
 .topbar-actions > * { flex-shrink:0; }
+
+.theme-toggle{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width: 42px; width: 42px; height: 38px; padding: 0; border-radius: 10px;
+  background: rgba(10,18,29,.2); border-color: rgba(255,255,255,.18); color: var(--text);
+}
+:root[data-theme='light'] .theme-toggle{ background: rgba(255,255,255,.42); color: var(--text); }
 
 .btn{
   font-family: var(--font-body); font-weight:700; font-size:.9rem;
@@ -131,7 +168,8 @@ p{ margin: 0 0 1em; color: var(--text-dim); }
 #notificationsBtn.has-unread::after{ content: attr(data-unread); position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; border-radius:999px; display:grid; place-items:center; font-size:10px; background:var(--danger); color:#fff; font-weight:700; }
 #notificationsBtn{ position:relative; }
 
-.card{ background: linear-gradient(180deg, rgba(16,44,65,.98), rgba(12,31,47,.96)); border: 1px solid rgba(117,162,186,.18); border-radius: var(--radius); padding: 22px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 12px 28px rgba(5,15,24,.22); }
+.card{ background: linear-gradient(180deg, rgba(16,44,65,.96), rgba(11,28,40,.96)); border: 1px solid rgba(117,162,186,.18); border-radius: var(--radius); padding: 18px 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,.02), 0 12px 26px rgba(5,15,24,.12); }
+:root[data-theme='light'] .card, :root[data-theme='light'] .thread-row, :root[data-theme='light'] .notification-panel, :root[data-theme='light'] .settings-dropdown, :root[data-theme='light'] .admin-sidebar{ background: var(--bg-card); }
 
 input, textarea, select{
   width:100%; font-family: var(--font-body); font-size: 1rem;
@@ -335,9 +373,9 @@ textarea{ resize: vertical; min-height: 100px; }
 }
 
 /* ---------------- Admin dashboard ---------------- */
-.admin-layout{ display:grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 65px); max-width: 1700px; margin: 0 auto; }
-.admin-sidebar{ border-right: 1px solid rgba(129,170,195,.18); background: rgba(9,24,35,.82); backdrop-filter: blur(8px); padding: 20px 14px; }
-.admin-main{ padding: 24px 28px 40px; max-width: 1000px; width:100%; }
+.admin-layout{ display:grid; grid-template-columns: 260px minmax(0, 1fr); min-height: calc(100vh - 65px); max-width: 1700px; margin: 0 auto; }
+.admin-sidebar{ border-right: 1px solid rgba(129,170,195,.18); background: var(--panel-glass); backdrop-filter: blur(10px); padding: 18px 12px; }
+.admin-main{ padding: 18px 26px 40px; max-width: 1000px; width:100%; }
 .admin-search{ max-width:520px; margin: 12px 0 18px; }
 .admin-search, .thread-controls input, .thread-controls select{ background: rgba(10,20,31,.7); border: 1px solid rgba(129,170,195,.2); }
 .thread-controls{ display:grid; grid-template-columns:1fr 1fr auto; align-items:end; gap:14px; margin-bottom:16px; }

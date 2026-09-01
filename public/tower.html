@@ -11,6 +11,7 @@
     <div class="brand"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo"> <a href="/index.html">FOPM</a> <span class="eyebrow" style="margin-left:8px">Tower platform</span></div>
     <div style="display:flex; gap:10px; align-items:center;">
       <div id="adminProfileDisplay" style="display:none; align-items:center; gap:8px; padding:0 12px; border-left:1px solid rgba(255,255,255,0.1);"></div>
+      <button class="btn btn-ghost btn-sm theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">☀</button>
       <a href="/index.html" class="btn btn-ghost btn-sm" id="backBtn">Back to home</a>
     </div>
   </div>
@@ -86,6 +87,27 @@ async function load() {
   );
   document.getElementById('app').style.display = 'block';
 }
+
+(() => {
+  const root = document.documentElement;
+  const stored = localStorage.getItem('fopm-theme');
+  const isLight = stored === 'light' || (!stored && window.matchMedia('(prefers-color-scheme: light)').matches);
+  root.setAttribute('data-theme', isLight ? 'light' : 'dark');
+  const themeToggle = document.getElementById('themeToggle');
+  const syncTheme = () => {
+    if (!themeToggle) return;
+    const dark = root.getAttribute('data-theme') !== 'light';
+    themeToggle.textContent = dark ? '☀' : '☾';
+    themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  };
+  syncTheme();
+  themeToggle?.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('fopm-theme', next);
+    syncTheme();
+  });
+})();
 
 initializeAdminProfile();
 load().catch(e => toast(e.message, true));

@@ -16,6 +16,7 @@
         <button class="btn btn-ghost btn-sm" id="notificationsBtn" aria-label="Notifications">Alerts</button>
         <div id="notificationPanel" class="notification-panel"></div>
       </div>
+      <button class="btn btn-ghost btn-sm theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">☀</button>
       <div class="settings-menu">
         <button class="btn btn-ghost btn-sm settings-toggle" id="settingsBtn" type="button" aria-label="Open settings">⚙</button>
         <div class="settings-dropdown" id="settingsDropdown" hidden>
@@ -62,5 +63,27 @@
 
 <script src="/js/api.js"></script>
 <script src="/js/admin.js"></script>
+<script>
+  (() => {
+    const root = document.documentElement;
+    const stored = localStorage.getItem('fopm-theme');
+    const isLight = stored === 'light' || (!stored && window.matchMedia('(prefers-color-scheme: light)').matches);
+    root.setAttribute('data-theme', isLight ? 'light' : 'dark');
+    const themeToggle = document.getElementById('themeToggle');
+    const syncThemeLabel = () => {
+      if (!themeToggle) return;
+      const dark = root.getAttribute('data-theme') !== 'light';
+      themeToggle.textContent = dark ? '☀' : '☾';
+      themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    };
+    syncThemeLabel();
+    themeToggle?.addEventListener('click', () => {
+      const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('fopm-theme', next);
+      syncThemeLabel();
+    });
+  })();
+</script>
 </body>
 </html>

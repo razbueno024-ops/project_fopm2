@@ -271,12 +271,13 @@ test('shows deleted concerns in the admin deleted filter so they can be recovere
     body: JSON.stringify({ username: 'admin', password: 'admin123' })
   });
   const { token } = await login.json();
+  const uniqueTitle = `T-ALPHA-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
   const createResponse = await fetch(`${baseUrl}/api/admin/towers/1/threads`, {
     method: 'POST',
     headers: { 'X-FOPM-Admin-Token': token },
     body: new URLSearchParams({
-      title: 'Recover me test concern',
+      title: uniqueTitle,
       message: 'This concern should appear in the deleted view and be recoverable.',
       category: 'General',
       urgency: 'normal',
