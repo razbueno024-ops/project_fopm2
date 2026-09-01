@@ -66,7 +66,7 @@ const LAYOUT_RENDERERS = { cards: renderCards, timeline: renderTimeline, ledger:
  */
 function renderFeed(threads, layout, opts) {
   if (!threads.length) {
-    return `<div class="empty-state fade-in"><div class="glyph">🏗️</div>No concerns raised here yet. Be the first to file one.</div>`;
+    return `<div class="empty-state fade-in"><img class="brand-logo" src="/assets/fopm_logo.jpg.jpg" alt="FOPM logo" style="width:64px;height:64px;display:block;margin:0 auto 10px;object-fit:contain;border-radius:10px;background:#fff;padding:6px;"><div>No concerns raised here yet. Be the first to file one.</div></div>`;
   }
   const renderer = LAYOUT_RENDERERS[layout] || renderCards;
   return renderer(threads, opts);
