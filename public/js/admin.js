@@ -210,7 +210,12 @@ function renderCreateForm() {
 
 async function renderAnalytics() {
   const data = await apiGet('/api/admin/analytics');
-  document.getElementById('main').innerHTML = `<div class="eyebrow">Operations overview</div><h2>Analytics</h2><div class="analytics-grid"><div class="card"><strong>${data.total}</strong><span>Total concerns</span></div><div class="card"><strong>${data.averageResolutionHours}h</strong><span>Average resolution</span></div><div class="card"><strong>${data.byStatus['in-progress'] || 0}</strong><span>In progress</span></div></div><div class="card"><h3>By category</h3>${Object.entries(data.byCategory).map(([key, value]) => `<div class="analytics-row"><span>${escapeHtml(key)}</span><strong>${value}</strong></div>`).join('')}</div>`;
+  document.getElementById('main').innerHTML = `<div class="eyebrow">Operations overview</div><h2>Analytics</h2><div class="analytics-grid"><div class="card"><strong>${data.total}</strong><span>Total concerns</span></div><div class="card"><strong>${data.averageResolutionHours}h</strong><span>Average resolution</span></div><div class="card"><strong>${data.emergencyOpen || 0}</strong><span>Open emergencies</span></div></div><div class="card"><h3>By category</h3>${Object.entries(data.byCategory).map(([key, value]) => `<div class="analytics-row"><span>${escapeHtml(key)}</span><strong>${value}</strong></div>`).join('')}</div><div class="card" style="margin-top:16px;"><h3>By urgency</h3>${Object.entries(data.byUrgency || {}).map(([key, value]) => `<div class="analytics-row"><span>${escapeHtml(key)}</span><strong>${value}</strong></div>`).join('')}</div>`;
+}
+
+async function renderAuditLog() {
+  const entries = await apiGet('/api/admin/audit-log');
+  document.getElementById('main').innerHTML = `<div class="eyebrow">Accountability</div><h2>Audit log</h2><div class="card"><div class="thread-list">${entries.length ? entries.map(entry => `<div class="analytics-row"><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.by || 'System')} · ${timeAgo(entry.at)}</span></div>`).join('') : '<div class="empty-state">No audit events yet.</div>'}</div></div>`;
 }
 
 async function renderUsers() {
@@ -613,6 +618,7 @@ document.querySelectorAll('[data-action]').forEach(button => {
     const dropdown = document.getElementById('settingsDropdown');
     if (dropdown) dropdown.setAttribute('hidden', 'hidden');
     if (action === 'analytics') return renderAnalytics().catch(error => toast(error.message, true));
+    if (action === 'audit') return renderAuditLog().catch(error => toast(error.message, true));
     if (action === 'export') return window.location.href = '/api/admin/export.csv';
     if (action === 'users') return renderUsers().catch(error => toast(error.message, true));
     if (action === 'logout') return logoutAdmin();

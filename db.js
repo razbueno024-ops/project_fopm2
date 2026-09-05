@@ -34,7 +34,9 @@ function makeDefaultState() {
     nextThreadSeq: 1,
     adminUsers: [{ username: 'admin', role: 'admin', passwordHash: DEFAULT_ADMIN_HASH }],
     notifications: [],
-    maintenance: []
+    maintenance: [],
+    auditLog: [],
+    publicSettings: { showOpenConcerns: true, allowAnonymousReports: true }
   };
 }
 
@@ -102,7 +104,9 @@ function mergeState(candidate) {
     nextThreadSeq: Number.isInteger(parsed.nextThreadSeq) ? parsed.nextThreadSeq : base.nextThreadSeq,
     adminUsers: Array.isArray(parsed.adminUsers) && parsed.adminUsers.length ? parsed.adminUsers : base.adminUsers,
     notifications: Array.isArray(parsed.notifications) ? parsed.notifications : base.notifications,
-    maintenance: Array.isArray(parsed.maintenance) ? parsed.maintenance : base.maintenance
+    maintenance: Array.isArray(parsed.maintenance) ? parsed.maintenance : base.maintenance,
+    auditLog: Array.isArray(parsed.auditLog) ? parsed.auditLog : base.auditLog,
+    publicSettings: { ...base.publicSettings, ...(parsed.publicSettings || {}) }
   };
   return stampLatestState(normalizeAdminState(merged));
 }

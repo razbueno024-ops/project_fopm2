@@ -199,6 +199,8 @@ function ensureState(state) {
 
   state.notifications ||= [];
   state.maintenance ||= [];
+  state.auditLog ||= [];
+  state.publicSettings = { showOpenConcerns: true, allowAnonymousReports: true, ...(state.publicSettings || {}) };
   state.threads = Array.isArray(state.threads) ? state.threads : [];
   state.threads.forEach(thread => {
     thread.status = thread.status === 'satisfied' ? 'resolved' : (thread.status || 'new');
@@ -216,8 +218,14 @@ function ensureState(state) {
   return state;
 }
 
+function recordAudit(state, req, action, details = {}) {
+  state.auditLog ||= [];
+  state.auditLog.push({ id: uuidv4(), action, by: req.session?.username || 'Public', at: new Date().toISOString(), ...details });
+  if (state.auditLog.length > 500) state.auditLog = state.auditLog.slice(-500);
+}
+
 function publicThread(t) {
-  const { verification, pendingFeedback, ...safeThread } = t;
+  const { verification, pendingFeedback, subscriptions, ...safeThread } = t;
   return {
     ...safeThread,
     messages: safeThread.messages.map(message => ({
@@ -383,8 +391,15 @@ app.get('/api/towers/:id/threads', (req, res) => {
   const towerId = Number(req.params.id);
   const state = ensureState(db.load());
   if (!state.towers.some(t => t.id === towerId)) return res.status(404).json({ error: 'Tower not found.' });
+  const query = String(req.query.q || '').trim().toLowerCase();
+  const category = String(req.query.category || '').trim().toLowerCase();
+  const urgency = String(req.query.urgency || '').trim().toLowerCase();
+  const includeResolved = req.query.includeResolved === 'true';
   const threads = state.threads
-    .filter(t => t.towerId === towerId && !t.deleted && t.status !== 'resolved' && t.status !== 'satisfied')
+    .filter(t => t.towerId === towerId && !t.deleted && (includeResolved || (t.status !== 'resolved' && t.status !== 'satisfied')))
+    .filter(t => !query || [t.title, t.category, t.location].join(' ').toLowerCase().includes(query))
+    .filter(t => !category || String(t.category).toLowerCase() === category)
+    .filter(t => !urgency || String(t.urgency).toLowerCase() === urgency)
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
     .map(t => ({
       token: t.token,
@@ -456,6 +471,7 @@ app.post('/api/admin/towers/:id/threads', canModerate, upload.single('attachment
   db.update(d => {
     thread.id = d.nextThreadSeq++;
     d.threads.push(thread);
+    recordAudit(d, req, 'thread.created', { token: thread.token, towerId, urgency: thread.urgency });
   }).then(() => {
     res.status(201).json({ token: thread.token, link: `/thread.html?token=${thread.token}` });
   });
@@ -472,6 +488,37 @@ app.get('/api/threads/:token', (req, res) => {
   if (!thread) return res.status(404).json({ error: 'This concern link is invalid or was removed.' });
   const tower = state.towers.find(t => t.id === thread.towerId);
   res.json({ thread: publicThread(thread), tower });
+});
+
+app.get('/api/threads/:token/updates', (req, res) => {
+  const state = ensureState(db.load());
+  const thread = state.threads.find(t => t.token === req.params.token);
+  if (!thread) return res.status(404).json({ error: 'Concern not found.' });
+  res.json({ token: thread.token, status: thread.status, updatedAt: thread.updatedAt, history: thread.history || [], messageCount: thread.messages.length });
+});
+
+app.post('/api/threads/:token/subscribe', (req, res) => {
+  const state = ensureState(db.load());
+  const thread = state.threads.find(t => t.token === req.params.token);
+  if (!thread) return res.status(404).json({ error: 'Concern not found.' });
+  const subscription = String(req.body?.subscription || '').trim().slice(0, 160);
+  if (!subscription) return res.status(400).json({ error: 'A notification subscription is required.' });
+  thread.subscriptions ||= [];
+  if (!thread.subscriptions.includes(subscription)) thread.subscriptions.push(subscription);
+  db.save(state);
+  res.json({ ok: true });
+});
+
+app.post('/api/emergency-report', verificationUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'concernPhoto', maxCount: 1 }]), (req, res) => {
+  const { towerId, title, message, location } = req.body || {};
+  const tower = ensureState(db.load()).towers.find(item => item.id === Number(towerId));
+  if (!tower || !title?.trim() || !message?.trim() || !location?.trim()) {
+    removeUploadedFiles(req.files);
+    return res.status(400).json({ error: 'Tower, title, location, and emergency details are required.' });
+  }
+  const now = new Date().toISOString();
+  const thread = { id: null, token: genToken(), towerId: tower.id, title: title.trim().slice(0, 140), submitterName: 'Anonymous', submitterUnit: '', status: 'new', category: 'Safety', urgency: 'emergency', location: location.trim().slice(0, 120), assignedTo: null, adminUnread: true, createdAt: now, updatedAt: now, closedAt: null, history: [{ action: 'emergency:reported', at: now, by: 'Public resident' }], messages: [{ id: uuidv4(), author: 'user', text: message.trim(), attachment: null, createdAt: now }] };
+  db.update(state => { thread.id = state.nextThreadSeq++; state.threads.push(thread); state.notifications.push({ id: uuidv4(), type: 'emergency', threadToken: thread.token, towerId: thread.towerId, message: 'Emergency safety report requires immediate review', createdAt: now, read: false }); recordAudit(state, req, 'emergency.reported', { token: thread.token, towerId: tower.id }); }).then(() => res.status(201).json({ ok: true, token: thread.token, link: `/thread.html?token=${thread.token}` }));
 });
 
 // A resident can follow up on their own concern from the same link.
@@ -603,6 +650,7 @@ app.patch('/api/admin/threads/:token/status', canModerate, (req, res) => {
     thread.closedAt = status === 'resolved' ? now : null;
     thread.updatedAt = now;
     thread.history.push({ action: `status:${status}`, at: now, by: req.session.username });
+    recordAudit(state, req, 'thread.status_changed', { token: thread.token, status });
     return { ok: true };
   }).then(result => result?.error ? res.status(404).json({ error: 'Not found.' }) : res.json({ ok: true }));
 });
@@ -626,7 +674,13 @@ app.get('/api/admin/analytics', canModerate, (req, res) => {
     byCategory[thread.category] = (byCategory[thread.category] || 0) + 1;
     byTower[thread.towerId] = (byTower[thread.towerId] || 0) + 1;
   });
-  res.json({ total: state.threads.length, byStatus, byCategory, byTower, averageResolutionHours: resolutionHours(state.threads) });
+  const byUrgency = {};
+  state.threads.forEach(thread => { byUrgency[thread.urgency] = (byUrgency[thread.urgency] || 0) + 1; });
+  res.json({ total: state.threads.length, byStatus, byCategory, byTower, byUrgency, emergencyOpen: state.threads.filter(thread => thread.urgency === 'emergency' && thread.status !== 'resolved').length, averageResolutionHours: resolutionHours(state.threads) });
+});
+
+app.get('/api/admin/audit-log', canModerate, (req, res) => {
+  res.json(ensureState(db.load()).auditLog.slice().reverse().slice(0, 100));
 });
 
 function resolutionHours(threads) {

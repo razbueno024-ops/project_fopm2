@@ -50,6 +50,7 @@
     </div>
 
     <div class="card messages-card" id="messages"></div>
+    <div class="card" id="timelineCard"><strong>Update timeline</strong><div id="timeline" class="resolution-timeline"></div><button class="btn btn-ghost btn-sm" id="subscribeBtn" type="button">Enable browser alerts</button></div>
 
     <div class="card" id="closedNotice" style="display:none; text-align:center; color:var(--text-dim);">
       This concern has been marked <strong>Satisfied</strong> by the admin and is now closed to new replies.
@@ -60,6 +61,7 @@
 <script>
 const token = new URLSearchParams(location.search).get('token');
 let feedbackEnabled = false;
+let lastThreadUpdate = null;
 if (!token) location.href = '/index.html';
 document.getElementById('shareLink').textContent = location.origin + `/thread.html?token=${token}`;
 document.getElementById('copyBtn').onclick = () => {
@@ -123,6 +125,10 @@ function renderMessages(messages) {
   `).join('');
 }
 
+function renderTimeline(history) {
+  return (history || []).map(item => `<div class="timeline-event"><span class="timeline-event-dot"></span><div><strong>${escapeHtml(String(item.action).replaceAll(':', ' · '))}</strong><div class="thread-meta">${timeAgo(item.at)} · ${escapeHtml(item.by || 'System')}</div></div></div>`).join('');
+}
+
 async function load() {
   const { thread, tower } = await apiGet(`/api/threads/${token}`);
   setTowerTheme(tower.accent);
@@ -140,6 +146,8 @@ async function load() {
     ? 'Verified. Your concern is now visible in this thread.'
     : 'Warning: the admin has assessed this concern as completed. A fresh verification is allowed while the thread remains open, but the warning remains until closure.';
   document.getElementById('messages').innerHTML = renderMessages(thread.messages);
+  document.getElementById('timeline').innerHTML = renderTimeline(thread.history);
+  lastThreadUpdate = thread.updatedAt;
   const badge = document.getElementById('statusBadge');
   badge.className = 'badge ' + (thread.status === 'open' ? 'badge-open' : 'badge-satisfied');
   const statusLabel = { new: 'New', 'in-progress': 'In progress', resolved: 'Resolved', open: 'Open', satisfied: 'Resolved' }[thread.status] || 'New';
@@ -205,6 +213,15 @@ function initializeAdminProfile() {
 })();
 
 initializeAdminProfile();
+document.getElementById('subscribeBtn').addEventListener('click', async () => { if (!('Notification' in window)) return toast('Browser notifications are not supported.', true); const permission = await Notification.requestPermission(); if (permission !== 'granted') return toast('Browser alerts were not enabled.', true); await apiPost(`/api/threads/${token}/subscribe`, { subscription: 'browser' }).catch(() => {}); localStorage.setItem(`fopm-alerts-${token}`, 'true'); toast('Browser alerts enabled.'); });
+setInterval(async () => {
+  if (document.hidden || !localStorage.getItem(`fopm-alerts-${token}`)) return;
+  const update = await apiGet(`/api/threads/${token}/updates`).catch(() => null);
+  if (!update || !lastThreadUpdate || update.updatedAt === lastThreadUpdate) return;
+  lastThreadUpdate = update.updatedAt;
+  if ('Notification' in window && Notification.permission === 'granted') new Notification('FOPM concern updated', { body: `Status: ${update.status}` });
+  load().catch(() => {});
+}, 30000);
 load().catch(e => { toast(e.message, true); });
 
 </script>

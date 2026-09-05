@@ -12,6 +12,7 @@
     <div style="display:flex; gap:10px; align-items:center;">
       <div id="adminProfileDisplay" style="display:none; align-items:center; gap:8px; padding:0 12px; border-left:1px solid rgba(255,255,255,0.1);"></div>
       <button class="btn btn-ghost btn-sm theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">☀</button>
+      <button class="btn btn-danger btn-sm" id="emergencyBtn" type="button">Emergency report</button>
       <a href="/admin-login.html" class="btn btn-ghost btn-sm" id="adminBtn">Admin</a>
     </div>
   </div>
@@ -37,10 +38,26 @@
         <span class="hint">Choose a tower to view its concerns</span>
       </div>
       <div class="tower-tabs" id="towerTabs"></div>
+      <div class="feed-filters" aria-label="Concern filters">
+        <input id="publicSearch" type="search" placeholder="Search concerns" aria-label="Search concerns">
+        <select id="publicCategory" aria-label="Filter by category"><option value="">All categories</option><option>General</option><option>Maintenance</option><option>Safety</option><option>Noise</option><option>Cleanliness</option><option>Facilities</option></select>
+        <select id="publicUrgency" aria-label="Filter by urgency"><option value="">All urgency</option><option value="emergency">Emergency</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select>
+      </div>
       <div id="feedBody"></div>
     </div>
 
     <p class="footer-note">Concerns are public via their unique link only — this keeps the wall open and honest without exposing everyone's business to casual browsing.</p>
+  </div>
+
+  <div id="emergencyPanel" class="center-screen" style="display:none; position:fixed; inset:0; background:rgba(11,18,32,.78); z-index:50;">
+    <form id="emergencyForm" class="card login-card" style="max-width:620px;">
+      <h2>Emergency safety report</h2><p>Use this for immediate safety risks. Include the exact location and what is happening.</p>
+      <div class="field"><label for="emergencyTower">Tower</label><select id="emergencyTower" required></select></div>
+      <div class="field"><label for="emergencyTitle">Short description</label><input id="emergencyTitle" maxlength="140" required></div>
+      <div class="field"><label for="emergencyLocation">Exact location</label><input id="emergencyLocation" required></div>
+      <div class="field"><label for="emergencyMessage">Details</label><textarea id="emergencyMessage" required></textarea></div>
+      <div style="display:flex;gap:10px;"><button class="btn btn-danger" type="submit">Send emergency report</button><button class="btn btn-ghost" id="closeEmergency" type="button">Cancel</button></div>
+    </form>
   </div>
 
 <script src="/js/api.js"></script>
@@ -49,6 +66,7 @@
 let towers = [];
 let allThreadsCache = null;
 let selectedId = new URLSearchParams(location.search).get('id') || null; // null = "All towers"
+let publicFilters = { q: '', category: '', urgency: '' };
 
 function towerById(id) { return towers.find(t => String(t.id) === String(id)); }
 
@@ -98,7 +116,8 @@ async function selectTower(id) {
 
 async function getAllThreadsMerged() {
   if (allThreadsCache) return allThreadsCache;
-  const perTower = await Promise.all(towers.map(t => apiGet(`/api/towers/${t.id}/threads`)));
+  const params = new URLSearchParams(Object.entries(publicFilters).filter(([, value]) => value));
+  const perTower = await Promise.all(towers.map(t => apiGet(`/api/towers/${t.id}/threads?${params}`)));
   allThreadsCache = perTower.flat().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
   return allThreadsCache;
 }
@@ -121,7 +140,8 @@ async function renderFeedBody() {
   setTowerTheme(tower.accent);
   document.getElementById('feedEyebrow').textContent = `${tower.codename} · ${tower.tagline}`;
   document.getElementById('feedTitle').textContent = tower.name;
-  const threads = await apiGet(`/api/towers/${tower.id}/threads`);
+  const params = new URLSearchParams(Object.entries(publicFilters).filter(([, value]) => value));
+  const threads = await apiGet(`/api/towers/${tower.id}/threads?${params}`);
   body.innerHTML = renderFeed(threads, tower.layout, { showChip: false, towerOf: () => tower });
 }
 
@@ -192,6 +212,12 @@ async function load() {
 })();
 
 initializeAdminProfile();
+document.getElementById('publicSearch').addEventListener('input', event => { publicFilters.q = event.target.value; allThreadsCache = null; renderFeedBody(); });
+document.getElementById('publicCategory').addEventListener('change', event => { publicFilters.category = event.target.value; allThreadsCache = null; renderFeedBody(); });
+document.getElementById('publicUrgency').addEventListener('change', event => { publicFilters.urgency = event.target.value; allThreadsCache = null; renderFeedBody(); });
+document.getElementById('emergencyBtn').addEventListener('click', () => { document.getElementById('emergencyTower').innerHTML = towers.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join(''); document.getElementById('emergencyPanel').style.display = 'grid'; });
+document.getElementById('closeEmergency').addEventListener('click', () => { document.getElementById('emergencyPanel').style.display = 'none'; });
+document.getElementById('emergencyForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(); form.append('towerId', document.getElementById('emergencyTower').value); form.append('title', document.getElementById('emergencyTitle').value); form.append('location', document.getElementById('emergencyLocation').value); form.append('message', document.getElementById('emergencyMessage').value); try { const result = await apiPost('/api/emergency-report', form, true); location.href = result.link; } catch (error) { toast(error.message, true); } });
 load().catch(e => toast(e.message, true));
 
 window.onpopstate = () => {
