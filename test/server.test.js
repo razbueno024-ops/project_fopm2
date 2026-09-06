@@ -128,6 +128,13 @@ test('protects admin analytics and private documents', async () => {
   assert.equal(document.status, 401);
 });
 
+test('rejects malformed admin token signatures without a server error', async () => {
+  const response = await fetch(`${baseUrl}/api/admin/analytics`, {
+    headers: { 'X-FOPM-Admin-Token': 'invalid.signature' }
+  });
+  assert.equal(response.status, 401);
+});
+
 test('does not expose pending feedback or stale image URLs publicly', async () => {
   const response = await fetch(`${baseUrl}/api/threads/kf4c2wknm2`);
   const data = await response.json();

@@ -78,10 +78,10 @@ function stateUpdatedAt(state) {
   return candidates.length ? Math.max(...candidates) : 0;
 }
 
-function stampLatestState(state) {
+function stampLatestState(state, touch = false) {
   if (!state || typeof state !== 'object') return state;
   state.meta = state.meta || {};
-  state.meta.lastUpdatedAt = new Date(stateUpdatedAt(state) || Date.now()).toISOString();
+  if (touch || !state.meta.lastUpdatedAt) state.meta.lastUpdatedAt = new Date().toISOString();
   return state;
 }
 
@@ -145,7 +145,7 @@ function loadFromJson() {
 function saveToJson(state) {
   ensureDbDirectory();
   if (!state || typeof state !== 'object') return;
-  const snapshot = stampLatestState(JSON.parse(JSON.stringify(state)));
+  const snapshot = stampLatestState(JSON.parse(JSON.stringify(state)), true);
   fs.writeFileSync(DB_PATH, JSON.stringify(snapshot, null, 2), 'utf-8');
 }
 
@@ -228,7 +228,7 @@ function load() {
 }
 
 async function save(state) {
-  const current = stampLatestState(state || cache || makeDefaultState());
+  const current = stampLatestState(state || cache || makeDefaultState(), true);
   cache = current;
 
   // Always persist the JSON snapshot first so a restart can recover the latest

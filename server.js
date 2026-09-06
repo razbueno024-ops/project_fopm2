@@ -11,12 +11,11 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET || 'fopm-render-fallback-secret';
-const REVOKED_ADMIN_TOKENS = new Set();
-
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
-  console.warn('SESSION_SECRET missing in production; using fallback secret for startup. Set it in Render so sessions stay stable.');
+  throw new Error('SESSION_SECRET is required in production. Configure it in Render before starting the server.');
 }
+const SESSION_SECRET = process.env.SESSION_SECRET || 'local-development-secret';
+const REVOKED_ADMIN_TOKENS = new Set();
 
 // Short, link-friendly, unambiguous token for public thread URLs
 // (no 0/O/1/I confusion) — this is what "Freedom Wall" links are built from.
@@ -92,6 +91,7 @@ function verifyAdminToken(token) {
   if (parts.length !== 2) return null;
   const [payload, signature] = parts;
   const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (signature.length !== expected.length) return null;
   if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   try {
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
@@ -103,19 +103,47 @@ function verifyAdminToken(token) {
 }
 
 function resolveAdminIdentity(req) {
+  let identity = null;
   if (req.session?.isAdmin) {
-    return { username: req.session.username || 'admin', role: req.session.role || 'admin' };
+    identity = { username: req.session.username || 'admin', role: req.session.role || 'admin' };
+  } else {
+    const token = req.headers['x-fopm-admin-token'] || req.query?.adminToken;
+    const payload = verifyAdminToken(token);
+    if (payload) identity = { username: payload.username, role: payload.role };
   }
-  const token = req.headers['x-fopm-admin-token'] || req.query?.adminToken;
-  const payload = verifyAdminToken(token);
-  if (payload) {
-    req.session.isAdmin = true;
-    req.session.username = payload.username;
-    req.session.role = payload.role;
-    return { username: payload.username, role: payload.role };
-  }
-  return null;
+  if (!identity) return null;
+  const state = ensureState(db.load());
+  const account = state.adminUsers.find(user => user.username === identity.username);
+  if (!account) return null;
+  identity.role = account.role || 'admin';
+  req.session.isAdmin = true;
+  req.session.username = account.username;
+  req.session.role = identity.role;
+  return identity;
 }
+
+function createRateLimiter({ windowMs, max, message }) {
+  const attempts = new Map();
+  return (req, res, next) => {
+    const key = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const current = attempts.get(key);
+    if (!current || now - current.startedAt >= windowMs) {
+      attempts.set(key, { startedAt: now, count: 1 });
+      return next();
+    }
+    current.count += 1;
+    if (current.count > max) {
+      res.setHeader('Retry-After', Math.ceil((windowMs - (now - current.startedAt)) / 1000));
+      return res.status(429).json({ error: message });
+    }
+    next();
+  };
+}
+
+const loginRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many login attempts. Try again later.' });
+const verificationRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 8, message: 'Too many verification attempts. Try again later.' });
+const emergencyRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Too many emergency reports. Try again later.' });
 
 function requireAdmin(req, res, next) {
   const identity = resolveAdminIdentity(req);
@@ -260,7 +288,7 @@ function removeUploadedFiles(files) {
 }
 
 // ================= AUTH =================
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginRateLimit, (req, res) => {
   const { username, password } = req.body || {};
   const state = ensureState(db.load());
   const account = state.adminUsers.find(user => user.username === username);
@@ -304,7 +332,7 @@ app.post('/api/admin/users', requireAdminRole('admin'), (req, res) => {
   }).then(result => result?.error ? res.status(409).json({ error: 'That admin username already exists.' }) : res.status(201).json({ ok: true }));
 });
 
-app.post('/api/admin/users/:username/password', requireAdminRole('admin'), (req, res) => {
+app.post('/api/admin/users/:username/password', requireAdminRole('admin'), async (req, res) => {
   const username = decodeURIComponent(req.params.username || '');
   const { newPassword } = req.body || {};
   if (!username || !newPassword || String(newPassword).trim().length < 6) {
@@ -319,11 +347,11 @@ app.post('/api/admin/users/:username/password', requireAdminRole('admin'), (req,
   if (state.admin && state.admin.username === username) {
     state.admin.passwordHash = target.passwordHash;
   }
-  db.save(state);
+  await db.save(state);
   res.json({ ok: true, username });
 });
 
-app.delete('/api/admin/users/:username', requireAdminRole('admin'), (req, res) => {
+app.delete('/api/admin/users/:username', requireAdminRole('admin'), async (req, res) => {
   const username = decodeURIComponent(req.params.username || '');
   if (!username) return res.status(400).json({ error: 'No username was provided.' });
   const state = ensureState(db.load());
@@ -334,7 +362,7 @@ app.delete('/api/admin/users/:username', requireAdminRole('admin'), (req, res) =
     return res.status(404).json({ error: 'No matching admin user was found.' });
   }
   state.adminUsers = state.adminUsers.filter(user => user.username !== username);
-  db.save(state);
+  await db.save(state);
   res.json({ ok: true, username });
 });
 
@@ -497,7 +525,7 @@ app.get('/api/threads/:token/updates', (req, res) => {
   res.json({ token: thread.token, status: thread.status, updatedAt: thread.updatedAt, history: thread.history || [], messageCount: thread.messages.length });
 });
 
-app.post('/api/threads/:token/subscribe', (req, res) => {
+app.post('/api/threads/:token/subscribe', async (req, res) => {
   const state = ensureState(db.load());
   const thread = state.threads.find(t => t.token === req.params.token);
   if (!thread) return res.status(404).json({ error: 'Concern not found.' });
@@ -505,16 +533,20 @@ app.post('/api/threads/:token/subscribe', (req, res) => {
   if (!subscription) return res.status(400).json({ error: 'A notification subscription is required.' });
   thread.subscriptions ||= [];
   if (!thread.subscriptions.includes(subscription)) thread.subscriptions.push(subscription);
-  db.save(state);
+  await db.save(state);
   res.json({ ok: true });
 });
 
-app.post('/api/emergency-report', verificationUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'concernPhoto', maxCount: 1 }]), (req, res) => {
+app.post('/api/emergency-report', emergencyRateLimit, verificationUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'concernPhoto', maxCount: 1 }]), (req, res) => {
   const { towerId, title, message, location } = req.body || {};
   const tower = ensureState(db.load()).towers.find(item => item.id === Number(towerId));
   if (!tower || !title?.trim() || !message?.trim() || !location?.trim()) {
     removeUploadedFiles(req.files);
     return res.status(400).json({ error: 'Tower, title, location, and emergency details are required.' });
+  }
+  if (Object.values(req.files || {}).flat().length) {
+    removeUploadedFiles(req.files);
+    return res.status(400).json({ error: 'Emergency reports do not accept attachments.' });
   }
   const now = new Date().toISOString();
   const thread = { id: null, token: genToken(), towerId: tower.id, title: title.trim().slice(0, 140), submitterName: 'Anonymous', submitterUnit: '', status: 'new', category: 'Safety', urgency: 'emergency', location: location.trim().slice(0, 120), assignedTo: null, adminUnread: true, createdAt: now, updatedAt: now, closedAt: null, history: [{ action: 'emergency:reported', at: now, by: 'Public resident' }], messages: [{ id: uuidv4(), author: 'user', text: message.trim(), attachment: null, createdAt: now }] };
@@ -558,7 +590,7 @@ app.post('/api/threads/:token/reply', (req, res) => {
   });
 });
 
-app.post('/api/threads/:token/verification', verificationUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'concernPhoto', maxCount: 1 }]), (req, res) => {
+app.post('/api/threads/:token/verification', verificationRateLimit, verificationUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'concernPhoto', maxCount: 1 }]), (req, res) => {
   const { fullName, documentType, idNumber } = req.body || {};
   const message = req.body?.message;
   const idFile = req.files?.idDocument?.[0];
