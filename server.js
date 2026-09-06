@@ -11,10 +11,10 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET is required in production. Configure it in Render before starting the server.');
+  console.warn('SESSION_SECRET missing in production; using a random per-instance secret. Configure it in Render to preserve sessions across restarts.');
 }
-const SESSION_SECRET = process.env.SESSION_SECRET || 'local-development-secret';
 const REVOKED_ADMIN_TOKENS = new Set();
 
 // Short, link-friendly, unambiguous token for public thread URLs

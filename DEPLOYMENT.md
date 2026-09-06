@@ -15,6 +15,8 @@
 4. Wait for the deploy to finish, then open the generated `onrender.com` URL.
 5. Set a strong admin password through the Admin Settings page.
 
+For an existing Render service, add `SESSION_SECRET` manually under **Environment** and generate a strong random value. `generateValue: true` in `render.yaml` is applied when Render creates or syncs the Blueprint; it does not necessarily update an already-created service. Without this variable, the app can start with a temporary per-instance secret, but sessions and admin tokens will be invalidated after a restart.
+
 ## Verify the deployment
 
 Open the generated URL on both desktop and mobile. Test:
